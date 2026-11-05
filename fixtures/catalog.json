@@ -1,0 +1,50 @@
+{
+  "brand": "Indigo Lane",
+  "note": "A fictional brand for the demo. Swap in the real catalog (30 to 40 items) under US-70.",
+  "products": [
+    {
+      "product_id": "jacket-denim",
+      "name": "Washed Denim Jacket",
+      "description": "Boxy fit, mid-wash cotton denim, brass buttons. Runs slightly large.",
+      "currency": "USD",
+      "list_cents": 8000,
+      "floor_cents": 6800,
+      "sizes": ["S", "M", "L"],
+      "post_ids": ["post-001"],
+      "stock": {"S": 0, "M": 2, "L": 3}
+    },
+    {
+      "product_id": "tote-canvas",
+      "name": "Block-Print Canvas Tote",
+      "description": "Hand block-printed cotton canvas, inner pocket, fits a 14-inch laptop.",
+      "currency": "USD",
+      "list_cents": 3200,
+      "floor_cents": 2800,
+      "sizes": ["ONE"],
+      "post_ids": ["post-002"],
+      "stock": {"ONE": 12}
+    },
+    {
+      "product_id": "scarf-silk",
+      "name": "Indigo Silk Scarf",
+      "description": "Natural indigo dye on mulberry silk, 90 by 90 cm, hand-rolled edges.",
+      "currency": "EUR",
+      "list_cents": 6500,
+      "floor_cents": 5500,
+      "sizes": ["ONE"],
+      "post_ids": ["post-003", "post-004"],
+      "stock": {"ONE": 4}
+    },
+    {
+      "product_id": "shirt-linen",
+      "name": "Relaxed Linen Shirt",
+      "description": "Breathable washed linen, camp collar, coconut-shell buttons.",
+      "currency": "GBP",
+      "list_cents": 5400,
+      "floor_cents": 4600,
+      "sizes": ["S", "M", "L", "XL"],
+      "post_ids": ["post-005"],
+      "stock": {"S": 1, "M": 0, "L": 5, "XL": 2}
+    }
+  ]
+}
