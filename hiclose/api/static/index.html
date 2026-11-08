@@ -158,10 +158,14 @@ function render(message) {
 }
 
 async function refresh() {
-  const res = await fetch(`/api/chat/${customer}/messages?after=${seen}`);
-  if (!res.ok) return;
-  const { messages } = await res.json();
-  for (const m of messages) { render(m); seen = m.n; }
+  try {
+    const res = await fetch(`/api/chat/${customer}/messages?after=${seen}`);
+    if (!res.ok) return;
+    const { messages } = await res.json();
+    for (const m of messages) { render(m); seen = m.n; }
+  } catch {
+    // server waking up or briefly offline; the next poll tries again
+  }
 }
 
 function typing(on) {
