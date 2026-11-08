@@ -134,6 +134,27 @@ def test_stats_count_the_funnel():
     assert (stats["messages"], stats["checkouts"], stats["paid"], stats["revenue"]) == (1, 1, 1, {"USD": "$32"})
 
 
+def test_one_visitor_is_rate_limited():
+    from hiclose.api.ratelimit import RateLimiter
+
+    shop = make_shop()
+    web = WebChannel()
+    service = HiCloseService(SalesAgent(FakeModel([say("hi!"), say("hi!")]), shop, ConversationStore()), shop, FakePayments(), {"web": web})
+    client = TestClient(create_app(service, web, limiter=RateLimiter(2, 60)))
+    codes = [client.post("/api/chat", json={"customer_id": "riya", "text": f"hi {i}"}).status_code for i in range(3)]
+    assert codes == [200, 200, 429]
+
+
+def test_rate_limit_window_slides():
+    from hiclose.api.ratelimit import RateLimiter
+
+    now = [0.0]
+    limiter = RateLimiter(1, 60, clock=lambda: now[0])
+    assert limiter.allow("ip") and not limiter.allow("ip")
+    now[0] = 60
+    assert limiter.allow("ip")
+
+
 def test_chat_page_is_served():
     client, *_ = build([])
     assert "HiClose demo shop" in client.get("/").text

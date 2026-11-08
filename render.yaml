@@ -1,0 +1,33 @@
+services:
+  - type: web
+    name: hiclose
+    runtime: python
+    plan: free
+    region: oregon
+    buildCommand: pip install -r requirements.txt
+    startCommand: uvicorn hiclose.api.app:create_default_app --factory --host 0.0.0.0 --port $PORT --proxy-headers --forwarded-allow-ips="*"
+    healthCheckPath: /health
+    autoDeploy: true
+    envVars:
+      - key: PYTHON_VERSION
+        value: "3.14.6"
+      - key: PAYPAL_ENVIRONMENT
+        value: SANDBOX
+      - key: GEMINI_MODEL
+        value: gemini-3.6-flash
+      - key: GEMINI_SMALL_MODEL
+        value: gemini-3.5-flash-lite
+      - key: SHOP_BRAND
+        value: Indigo Lane
+      - key: WORKER_COUNT
+        value: "10"
+      - key: CHAT_LIMIT_PER_MINUTE
+        value: "20"
+      - key: PAYPAL_CLIENT_ID
+        sync: false
+      - key: PAYPAL_CLIENT_SECRET
+        sync: false
+      - key: GEMINI_API_KEY
+        sync: false
+      - key: PAYPAL_WEBHOOK_ID
+        sync: false

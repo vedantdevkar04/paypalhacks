@@ -12,6 +12,7 @@ from fastapi import FastAPI, HTTPException, Request
 from fastapi.responses import FileResponse, HTMLResponse
 
 from hiclose.agent.money import fmt
+from hiclose.api.ratelimit import RateLimiter
 from hiclose.api.service import HiCloseService
 from hiclose.channels import WebChannel
 from hiclose.paypal import PayPalError, PayPalWebhooks
@@ -29,8 +30,14 @@ def _page(title: str, body: str) -> HTMLResponse:
     )
 
 
-def create_app(service: HiCloseService, web: WebChannel, webhooks: PayPalWebhooks | None = None) -> FastAPI:
+def create_app(
+    service: HiCloseService,
+    web: WebChannel,
+    webhooks: PayPalWebhooks | None = None,
+    limiter: RateLimiter | None = None,
+) -> FastAPI:
     app = FastAPI(title="HiClose")
+    limiter = limiter or RateLimiter(int(os.environ.get("CHAT_LIMIT_PER_MINUTE", "20")), 60)
 
     @app.get("/")
     def chat_page():
@@ -58,7 +65,10 @@ def create_app(service: HiCloseService, web: WebChannel, webhooks: PayPalWebhook
         return {"brand": service.shop.brand, "posts": posts}
 
     @app.post("/api/chat")
-    async def chat(payload: dict):
+    async def chat(payload: dict, request: Request):
+        visitor = request.client.host if request.client else "unknown"
+        if not limiter.allow(visitor):
+            raise HTTPException(429, "Slow down a little: too many messages in a minute")
         messages = web.parse(payload)
         if not messages:
             raise HTTPException(400, "customer_id and text are required")

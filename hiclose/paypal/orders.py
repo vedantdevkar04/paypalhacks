@@ -54,7 +54,12 @@ class PayPalCheckout:
         self._client = client
         self._orders = orders
         self._brand = brand
-        self._base = (public_base_url or os.environ.get("PUBLIC_BASE_URL", "http://localhost:8000")).rstrip("/")
+        self._base = (
+            public_base_url
+            or os.environ.get("PUBLIC_BASE_URL")
+            or os.environ.get("RENDER_EXTERNAL_URL")
+            or "http://localhost:8000"
+        ).rstrip("/")
 
     def create_checkout(self, quote: Quote) -> Checkout:
         body = {
