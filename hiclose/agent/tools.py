@@ -81,6 +81,7 @@ class ShopTools:
         self.checkout_url: str | None = None
         self.order_id: str | None = None
         self.checkout_cents: int | None = None
+        self.handed_off_now = False
         self._priced_this_turn: dict[str, dict] = {}
 
     def specs(self) -> list[ToolSpec]:
@@ -162,5 +163,8 @@ class ShopTools:
         return {"ok": True, "price": self._price(price, product.currency), "size": size, "held_minutes": 15}
 
     def _hand_to_owner(self, reason: str) -> dict:
+        if self._convo.handed_off:
+            return {"ok": True, "say": "The owner already has this chat. Keep helping with shopping questions."}
         self._convo.handed_off = reason
-        return {"ok": True, "say": "Tell the customer the owner will reply personally soon."}
+        self.handed_off_now = True
+        return {"ok": True, "say": "Tell the customer the owner will reply personally soon, and offer to help meanwhile."}

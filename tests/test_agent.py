@@ -116,10 +116,31 @@ def test_unknown_tool_and_bad_arguments_are_refused():
     assert tools.run(ToolCall("propose_price", {"product_id": "jacket-denim", "offered_amount": "lots"}))["ok"] is False
 
 
-def test_handoff_stops_the_agent_for_that_customer():
-    agent, _, _ = agent_with([call("hand_to_owner", reason="complaint"), say("The owner will reply to you personally.")])
+def test_handoff_flags_the_chat_but_the_customer_still_gets_answers():
+    agent, model, _ = agent_with([
+        call("hand_to_owner", reason="complaint"), say("The owner will reply to you personally."),
+        say("Of course! What are you looking for?"),
+    ])
     first = agent.handle("whatsapp:+1", "it arrived broken")
     assert first.handed_off is True
+    second = agent.handle("whatsapp:+1", "also, do you have bags?")
+    assert second.text == "Of course! What are you looking for?"
+    assert second.handed_off is False
+    assert "passed to the owner for: complaint" in model.seen[-1][-1]["text"]
+
+
+def test_second_handoff_is_not_counted_again():
+    agent, _, _ = agent_with([
+        call("hand_to_owner", reason="complaint"), say("The owner will reply soon."),
+        call("hand_to_owner", reason="complaint"), say("The owner has it, anything else?"),
+    ])
+    agent.handle("whatsapp:+1", "broken!")
+    assert agent.handle("whatsapp:+1", "broken!!").handed_off is False
+
+
+def test_agent_stays_quiet_once_the_owner_takes_over():
+    agent, _, _ = agent_with([])
+    agent._store.get("whatsapp:+1").owner_active = True
     assert agent.handle("whatsapp:+1", "hello??") is None
 
 

@@ -12,6 +12,7 @@ class Conversation:
     standing_offers: dict[str, int] = field(default_factory=dict)
     revealed_cents: set[int] = field(default_factory=set)
     handed_off: str | None = None
+    owner_active: bool = False
 
 
 class ConversationStore:

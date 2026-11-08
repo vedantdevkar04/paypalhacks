@@ -27,23 +27,26 @@ class SalesAgent:
         self._max_steps = max_steps
         self._system = system_prompt(shop.brand)
 
-    def _context(self, post_id: str | None) -> str | None:
+    def _context(self, post_id: str | None, handed_off: str | None) -> str | None:
+        notes = []
         product = self._shop.catalog.for_post(post_id)
-        if product is None:
-            return None
-        return f"The customer is messaging about post {post_id}, which shows product_id {product.product_id} ({product.name})."
+        if product is not None:
+            notes.append(f"The customer is messaging about post {post_id}, which shows product_id {product.product_id} ({product.name}).")
+        if handed_off:
+            notes.append(f"Earlier this chat was passed to the owner for: {handed_off}. Keep helping with shopping questions.")
+        return " ".join(notes) or None
 
     def handle(self, customer_id: str, text: str, post_id: str | None = None) -> AgentReply | None:
         convo = self._store.get(customer_id)
-        if convo.handed_off:
+        if convo.owner_active:
             return None
         tools = ShopTools(self._shop, convo)
-        convo.history.append(self._model.user_turn(render_user(text, self._context(post_id))))
+        convo.history.append(self._model.user_turn(render_user(text, self._context(post_id, convo.handed_off))))
         used: list[str] = []
         rewrites = 0
 
         def reply(message: str) -> AgentReply:
-            return AgentReply(message, tools.checkout_url, tools.order_id, convo.handed_off is not None, used, rewrites)
+            return AgentReply(message, tools.checkout_url, tools.order_id, tools.handed_off_now, used, rewrites)
 
         for _ in range(self._max_steps):
             try:
