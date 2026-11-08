@@ -27,7 +27,8 @@ and we aim to submit by **09:00 PT**. Rules: https://paypalaihackathon.devpost.c
    refund or a payment status. It calls tools, and the rules engine answers.
 2. **Prices travel as quote IDs, never as numbers the model typed.** `create_order` takes a
    `quote_id`, and the server reads the price from its own record.
-3. **An order is paid only when PayPal's webhook says so.** Screenshots and claims are ignored.
+3. **An order is paid only when PayPal says so:** a verified webhook, or our own capture call
+   returning COMPLETED for exactly the quoted amount and currency. Screenshots and claims are ignored.
 4. **The only payment path is a PayPal order.** No bank transfer, friends and family or crypto
    path exists in the code. Refunds go only to the original payment, through PayPal's Refund API.
 5. **Ship only to the address on the PayPal transaction.**
@@ -100,6 +101,14 @@ drafting the list.
 - **Both:** the demo brand and catalog, the benchmark messages, the video
 
 Stay in your lane, so two AI sessions don't edit the same files. If you swap work, edit this list.
+
+**Swap on 6 Nov:** Vedant built `hiclose/paypal/` (US-20, US-21, plus the capture, refund and
+webhook logic) so the demo had real checkout early. **Adi: don't rebuild it.** Extend it from here.
+It implements the agent's `CheckoutProvider` contract in `hiclose/agent/tools.py`. Still to do on
+your side:
+- the FastAPI routes: `/webhooks/paypal`, `/checkout/return`, `/checkout/cancel`
+- registering the webhook in the PayPal dashboard once Render gives us a URL
+- releasing stock holds when a checkout expires or is cancelled
 
 ## Cut order
 

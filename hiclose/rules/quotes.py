@@ -17,6 +17,7 @@ class Quote:
     price_cents: int
     currency: str
     expires_at: datetime
+    size: str = ""
 
 
 def _utcnow() -> datetime:
@@ -29,7 +30,7 @@ class QuoteBook:
         self._clock = clock
         self._quotes: dict[str, Quote] = {}
 
-    def create(self, product_id: str, price_cents: int, currency: str = "USD") -> Quote:
+    def create(self, product_id: str, price_cents: int, currency: str = "USD", size: str = "") -> Quote:
         if price_cents <= 0:
             raise QuoteError("a quote must have a positive price")
         quote = Quote(
@@ -38,6 +39,7 @@ class QuoteBook:
             price_cents=price_cents,
             currency=currency,
             expires_at=self._clock() + self._ttl,
+            size=size,
         )
         self._quotes[quote.quote_id] = quote
         return quote

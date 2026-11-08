@@ -143,7 +143,7 @@ class ShopTools:
         if self._shop.catalog.in_stock(product_id, size) <= 0:
             return {"ok": False, "error": f"size {size} is out of stock"}
         price = self._convo.standing_offers.get(product_id, product.list_cents)
-        quote = self._shop.quotes.create(product_id, price, product.currency)
+        quote = self._shop.quotes.create(product_id, price, product.currency, size=size)
         self._shop.catalog.reserve(product_id, size)
         try:
             checkout = self._shop.checkout.create_checkout(quote)
