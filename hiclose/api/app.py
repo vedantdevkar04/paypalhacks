@@ -8,17 +8,27 @@ import html
 import os
 from pathlib import Path
 
+import logging
+
 from fastapi import FastAPI, HTTPException, Request
-from fastapi.responses import FileResponse, HTMLResponse
+from fastapi.responses import FileResponse, HTMLResponse, Response
 
 from hiclose.agent.money import fmt
 from hiclose.api.ratelimit import RateLimiter
 from hiclose.api.service import HiCloseService
 from hiclose.channels import WebChannel
+from hiclose.channels.whatsapp import WhatsAppChannel
 from hiclose.paypal import PayPalError, PayPalWebhooks
 
 ROOT = Path(__file__).resolve().parents[2]
 STATIC = Path(__file__).parent / "static"
+EMPTY_TWIML = '<?xml version="1.0" encoding="UTF-8"?><Response></Response>'
+log = logging.getLogger("hiclose")
+
+
+def _public_url(request: Request) -> str:
+    base = os.environ.get("PUBLIC_BASE_URL") or os.environ.get("RENDER_EXTERNAL_URL")
+    return base.rstrip("/") + request.url.path if base else str(request.url)
 
 
 def _page(title: str, body: str) -> HTMLResponse:
@@ -35,9 +45,17 @@ def create_app(
     web: WebChannel,
     webhooks: PayPalWebhooks | None = None,
     limiter: RateLimiter | None = None,
+    whatsapp: WhatsAppChannel | None = None,
 ) -> FastAPI:
     app = FastAPI(title="HiClose")
     limiter = limiter or RateLimiter(int(os.environ.get("CHAT_LIMIT_PER_MINUTE", "20")), 60)
+    app.state.tasks = set()
+
+    async def handle_in_background(message):
+        try:
+            await service.handle(message)
+        except Exception:
+            log.exception("failed to handle %s message %s", message.channel, message.message_id)
 
     @app.get("/")
     def chat_page():
@@ -108,6 +126,21 @@ def create_app(
         await service.notify_payment(result.order)
         return {"ok": True, "result": result.reason}
 
+    @app.post("/webhooks/whatsapp")
+    async def whatsapp_webhook(request: Request):
+        if whatsapp is None:
+            raise HTTPException(503, "WhatsApp not configured")
+        params = whatsapp.form(await request.body())
+        if not whatsapp.verify(_public_url(request), params, request.headers.get("X-Twilio-Signature", "")):
+            raise HTTPException(403, "signature not verified")
+        for message in whatsapp.parse(params):
+            if not limiter.allow(message.customer_id):
+                continue
+            task = asyncio.create_task(handle_in_background(message))
+            app.state.tasks.add(task)
+            task.add_done_callback(app.state.tasks.discard)
+        return Response(EMPTY_TWIML, media_type="application/xml")
+
     @app.get("/api/stats")
     def stats():
         s = service.stats
@@ -134,7 +167,9 @@ def create_default_app() -> FastAPI:
     shop = Shop(brand, Catalog.from_json(ROOT / "fixtures" / "catalog.json"), QuoteBook(), payments)
     agent = SalesAgent(GeminiModel.from_env(), shop, ConversationStore())
     web = WebChannel()
-    service = HiCloseService(agent, shop, payments, {"web": web})
+    whatsapp = WhatsAppChannel.from_env()
+    channels = {"web": web, **({"whatsapp": whatsapp} if whatsapp else {})}
+    service = HiCloseService(agent, shop, payments, channels)
     webhook_id = os.environ.get("PAYPAL_WEBHOOK_ID", "")
     webhooks = PayPalWebhooks(client, payments, webhook_id) if webhook_id else None
-    return create_app(service, web, webhooks)
+    return create_app(service, web, webhooks, whatsapp=whatsapp)
