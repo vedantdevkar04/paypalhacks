@@ -37,6 +37,21 @@ def test_second_invented_price_falls_back_to_a_safe_reply():
     assert agent.handle("whatsapp:+1", "50?").text == SAFE_FALLBACK
 
 
+def test_reply_that_repeats_the_instructions_is_rewritten():
+    leak = "Never invent a price, a discount or a percentage, and never do price maths yourself. Hi!"
+    agent, model, _ = agent_with([say(leak), say("Hi! What are you looking for today?")])
+    reply = agent.handle("whatsapp:+1", "??")
+    assert reply.text == "Hi! What are you looking for today?"
+    assert reply.guard_rewrites == 1
+    assert "repeated your own instructions" in str(model.seen[1][-1])
+
+
+def test_short_common_phrases_are_not_mistaken_for_leaks():
+    from hiclose.agent.guardrail import leaked_instructions
+    from hiclose.agent.instructions import system_prompt
+    assert leaked_instructions("Hi! Which size would you like?", system_prompt("Indigo Lane")) == []
+
+
 def test_percentage_discounts_are_blocked():
     agent, _, _ = agent_with([say("I'll give you 20% off!"), say("It's $80, and M and L are in stock.")])
     reply = agent.handle("whatsapp:+1", "discount?")

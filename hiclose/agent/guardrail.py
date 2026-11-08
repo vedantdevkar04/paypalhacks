@@ -12,6 +12,22 @@ def _cents(raw: str) -> int:
     return int(Decimal(raw.replace(",", "")) * 100)
 
 
+def _normal(text: str) -> str:
+    return re.sub(r"[^a-z0-9 ]+", "", text.lower().replace("\n", " ")).strip()
+
+
+def leaked_instructions(text: str, system: str, min_chars: int = 30) -> list[str]:
+    """Pieces of the system prompt that turn up word for word in a reply."""
+    reply = " ".join(_normal(text).split())
+    pieces = re.split(r"(?<=[.!?:;])\s+|\n+|\s+-\s+", system)
+    leaked = []
+    for piece in pieces:
+        normal = " ".join(_normal(piece).split())
+        if len(normal) >= min_chars and normal in reply:
+            leaked.append(piece.strip())
+    return leaked
+
+
 def price_violations(text: str, allowed_cents: set[int]) -> list[str]:
     found = []
     for pattern in (_SYMBOL_AMOUNT, _CODE_AMOUNT):

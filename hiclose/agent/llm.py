@@ -112,5 +112,9 @@ class GeminiModel:
             ToolCall(name=p.function_call.name, args=dict(p.function_call.args or {}), call_id=p.function_call.id)
             for p in parts if p.function_call
         ]
-        text = "".join(p.text for p in parts if p.text and not p.thought)
-        return ModelTurn(text=text.strip(), tool_calls=calls, raw=content, model=model)
+        pieces: list[str] = []
+        for p in parts:
+            piece = (p.text or "").strip() if not p.thought else ""
+            if piece and piece not in "".join(pieces):
+                pieces.append(piece)
+        return ModelTurn(text="\n".join(pieces), tool_calls=calls, raw=content, model=model)

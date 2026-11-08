@@ -3,8 +3,8 @@
 from dataclasses import dataclass, field
 
 from hiclose.agent.conversation import ConversationStore
-from hiclose.agent.guardrail import price_violations
-from hiclose.agent.instructions import BUSY_FALLBACK, CORRECTION, SAFE_FALLBACK, render_user, system_prompt
+from hiclose.agent.guardrail import leaked_instructions, price_violations
+from hiclose.agent.instructions import BUSY_FALLBACK, CORRECTION, LEAK_CORRECTION, SAFE_FALLBACK, render_user, system_prompt
 from hiclose.agent.llm import ChatModel, ModelUnavailable
 from hiclose.agent.tools import Shop, ShopTools
 
@@ -62,10 +62,12 @@ class SalesAgent:
                 convo.history.append(self._model.tool_results_turn(results))
                 continue
             found = price_violations(turn.text, tools.allowed_cents())
-            if not found and turn.text:
+            leaked = leaked_instructions(turn.text, self._system)
+            if not found and not leaked and turn.text:
                 return reply(turn.text)
             if rewrites >= 1:
                 return reply(SAFE_FALLBACK)
             rewrites += 1
-            convo.history.append(self._model.user_turn(CORRECTION.format(found=", ".join(found) or "an empty reply")))
+            note = LEAK_CORRECTION if leaked and not found else CORRECTION.format(found=", ".join(found) or "an empty reply")
+            convo.history.append(self._model.user_turn(note))
         return reply(SAFE_FALLBACK)

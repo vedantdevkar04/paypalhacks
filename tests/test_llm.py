@@ -56,6 +56,14 @@ def test_bad_request_is_not_retried():
     assert calls == ["primary"]
 
 
+def test_repeated_text_pieces_are_dropped():
+    model, _, _ = model_with({"primary": [reply(
+        types.Part.from_text(text='Sure! "Want the jacket in M or L?'),
+        types.Part.from_text(text="Want the jacket in M or L?"),
+    )], "fallback": []})
+    assert model.generate("system", [], []).text == 'Sure! "Want the jacket in M or L?'
+
+
 def test_tool_calls_and_text_are_parsed():
     part = types.Part(function_call=types.FunctionCall(name="get_product", args={"product_id": "x"}, id="c1"))
     model, _, _ = model_with({"primary": [reply(part)], "fallback": []})
