@@ -94,7 +94,8 @@ class HiCloseService:
         product = self.shop.catalog.get(quote.product_id)
         address = (record.ship_to or {}).get("address", {})
         place = ", ".join(p for p in (address.get("admin_area_2"), address.get("admin_area_1")) if p)
-        text = f"Paid ✅ {fmt(quote.price_cents, quote.currency)} for the {product.name}" + (f" ({quote.size})" if quote.size else "")
+        size = f" ({quote.size})" if quote.size and quote.size != "ONE" else ""
+        text = f"Paid ✅ {fmt(quote.price_cents, quote.currency)} for the {product.name}{size}"
         text += f". Order {record.order_id}" + (f", shipping to {place}." if place else ".") + " Thank you! 💛"
         await self._send(OutgoingMessage(owner[0], owner[1], text))
 

@@ -92,7 +92,9 @@ def test_returning_twice_sends_one_paid_message():
     client.post("/api/chat", json={"customer_id": "riya", "text": "the tote please"})
     client.get("/checkout/return", params={"token": "ORD-1"})
     client.get("/checkout/return", params={"token": "ORD-1"})
-    assert sum(m["text"].startswith("Paid ✅") for m in transcript(client)) == 1
+    paid = [m["text"] for m in transcript(client) if m["text"].startswith("Paid ✅")]
+    assert len(paid) == 1
+    assert "(ONE)" not in paid[0]
     assert service.stats.paid == 1
 
 
