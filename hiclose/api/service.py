@@ -1,0 +1,117 @@
+"""Runs the agent for every channel: a bounded pool of workers, one customer at a time, and the
+messages the shop sends on its own when PayPal confirms or a checkout is cancelled."""
+
+import asyncio
+import os
+from collections import defaultdict
+from dataclasses import dataclass, field
+from datetime import datetime, timezone
+from typing import Protocol
+
+from hiclose.agent import SalesAgent, Shop
+from hiclose.agent.money import fmt
+from hiclose.channels.base import ChannelAdapter, IncomingMessage, OutgoingMessage
+from hiclose.paypal.orders import OrderRecord
+
+
+class Payments(Protocol):
+    def get_order(self, order_id: str) -> OrderRecord | None: ...
+    def confirm(self, order_id: str) -> OrderRecord: ...
+    def cancel(self, order_id: str) -> OrderRecord | None: ...
+
+
+@dataclass
+class Stats:
+    messages: int = 0
+    replies: int = 0
+    checkouts: int = 0
+    paid: int = 0
+    revenue_cents: dict[str, int] = field(default_factory=dict)
+    handed_off: int = 0
+    guard_rewrites: int = 0
+    busy_replies: int = 0
+    events: list[dict] = field(default_factory=list)
+
+    def log(self, kind: str, **data) -> None:
+        self.events.append({"at": datetime.now(timezone.utc).isoformat(timespec="seconds"), "kind": kind, **data})
+        del self.events[:-500]
+
+
+class HiCloseService:
+    def __init__(self, agent: SalesAgent, shop: Shop, payments: Payments, channels: dict[str, ChannelAdapter], workers: int | None = None):
+        self.agent = agent
+        self.shop = shop
+        self.payments = payments
+        self.channels = channels
+        self.stats = Stats()
+        self.enabled = True
+        self._slots = asyncio.Semaphore(workers or int(os.environ.get("WORKER_COUNT", "20")))
+        self._locks: dict[str, asyncio.Lock] = defaultdict(asyncio.Lock)
+        self._seen: set[str] = set()
+        self._order_owner: dict[str, tuple[str, str]] = {}
+        self._notified: set[str] = set()
+
+    async def handle(self, message: IncomingMessage) -> OutgoingMessage | None:
+        key = f"{message.channel}:{message.message_id}"
+        if key in self._seen:
+            return None
+        self._seen.add(key)
+        self.stats.messages += 1
+        self.stats.log("message", customer=message.customer_id, channel=message.channel)
+        if not self.enabled:
+            return await self._send(OutgoingMessage(message.channel, message.customer_id, "Thanks for your message! We'll reply soon."))
+        async with self._slots, self._locks[message.customer_id]:
+            reply = await asyncio.to_thread(self.agent.handle, message.customer_id, message.text, message.post_id)
+        if reply is None:
+            return None
+        self.stats.replies += 1
+        self.stats.guard_rewrites += reply.guard_rewrites
+        if reply.handed_off:
+            self.stats.handed_off += 1
+            self.stats.log("handoff", customer=message.customer_id)
+        if reply.order_id:
+            self._order_owner[reply.order_id] = (message.channel, message.customer_id)
+            self.stats.checkouts += 1
+            self.stats.log("checkout", customer=message.customer_id, order=reply.order_id)
+        return await self._send(OutgoingMessage(message.channel, message.customer_id, reply.text, reply.checkout_url))
+
+    async def payment_returned(self, order_id: str) -> OrderRecord:
+        record = await asyncio.to_thread(self.payments.confirm, order_id)
+        await self.notify_payment(record)
+        return record
+
+    async def notify_payment(self, record: OrderRecord | None) -> None:
+        if record is None or record.status != "PAID" or record.order_id in self._notified:
+            return
+        self._notified.add(record.order_id)
+        quote = record.quote
+        self.stats.paid += 1
+        self.stats.revenue_cents[quote.currency] = self.stats.revenue_cents.get(quote.currency, 0) + quote.price_cents
+        self.stats.log("paid", order=record.order_id, cents=quote.price_cents, currency=quote.currency)
+        owner = self._order_owner.get(record.order_id)
+        if owner is None:
+            return
+        product = self.shop.catalog.get(quote.product_id)
+        address = (record.ship_to or {}).get("address", {})
+        place = ", ".join(p for p in (address.get("admin_area_2"), address.get("admin_area_1")) if p)
+        text = f"Paid ✅ {fmt(quote.price_cents, quote.currency)} for the {product.name}" + (f" ({quote.size})" if quote.size else "")
+        text += f". Order {record.order_id}" + (f", shipping to {place}." if place else ".") + " Thank you! 💛"
+        await self._send(OutgoingMessage(owner[0], owner[1], text))
+
+    async def checkout_cancelled(self, order_id: str) -> None:
+        record = self.payments.cancel(order_id)
+        if record is None or order_id in self._notified:
+            return
+        self._notified.add(order_id)
+        if record.quote.size:
+            self.shop.catalog.release(record.quote.product_id, record.quote.size)
+        self.stats.log("cancelled", order=order_id)
+        owner = self._order_owner.get(order_id)
+        if owner:
+            await self._send(OutgoingMessage(owner[0], owner[1], "No worries, I've cancelled that checkout. Just say if you'd like it again!"))
+
+    async def _send(self, message: OutgoingMessage) -> OutgoingMessage:
+        channel = self.channels.get(message.channel)
+        if channel is not None:
+            await channel.send(message)
+        return message

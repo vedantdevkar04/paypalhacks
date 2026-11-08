@@ -80,6 +80,15 @@ class PayPalCheckout:
         self._orders.add(OrderRecord(order_id=data["id"], quote=quote, approve_url=url))
         return Checkout(order_id=data["id"], approve_url=url)
 
+    def get_order(self, order_id: str) -> OrderRecord | None:
+        return self._orders.get(order_id)
+
+    def cancel(self, order_id: str) -> OrderRecord | None:
+        record = self._orders.get(order_id)
+        if record is not None and record.status == "CREATED":
+            record.status = "FAILED"
+        return record
+
     def confirm(self, order_id: str) -> OrderRecord:
         """Capture an approved order. Safe to call twice: a paid order is returned as it is."""
         record = self._orders.get(order_id)
