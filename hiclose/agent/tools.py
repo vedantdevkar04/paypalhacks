@@ -80,11 +80,15 @@ class ShopTools:
         self._convo = conversation
         self.checkout_url: str | None = None
         self.order_id: str | None = None
+        self.checkout_cents: int | None = None
+        self._priced_this_turn: dict[str, dict] = {}
 
     def specs(self) -> list[ToolSpec]:
         return SPECS
 
     def allowed_cents(self) -> set[int]:
+        if self.checkout_cents is not None:
+            return {self.checkout_cents}
         listed = {p.list_cents for p in self._shop.catalog.products()}
         return listed | self._convo.revealed_cents
 
@@ -115,6 +119,8 @@ class ShopTools:
         return {"ok": True, "product": self._view(product_id)}
 
     def _propose_price(self, product_id: str, offered_amount: str) -> dict:
+        if product_id in self._priced_this_turn:
+            return self._priced_this_turn[product_id]
         product = self._shop.catalog.get(product_id)
         asked = parse_amount(offered_amount)
         if asked is None:
@@ -129,12 +135,14 @@ class ShopTools:
         if standing is not None and standing < price:
             price = standing
         self._convo.standing_offers[product_id] = price
-        return {
+        result = {
             "ok": True,
-            "decision": "accept" if decision.action == "accept" else decision.action,
+            "decision": decision.action,
             "price": self._price(price, product.currency),
             "final": decision.action == "final",
         }
+        self._priced_this_turn[product_id] = result
+        return result
 
     def _checkout(self, product_id: str, size: str) -> dict:
         product = self._shop.catalog.get(product_id)
@@ -150,7 +158,7 @@ class ShopTools:
         except Exception:
             self._shop.catalog.release(product_id, size)
             return {"ok": False, "error": "checkout is unavailable right now; apologise and offer to try again"}
-        self.checkout_url, self.order_id = checkout.approve_url, checkout.order_id
+        self.checkout_url, self.order_id, self.checkout_cents = checkout.approve_url, checkout.order_id, price
         return {"ok": True, "price": self._price(price, product.currency), "size": size, "held_minutes": 15}
 
     def _hand_to_owner(self, reason: str) -> dict:

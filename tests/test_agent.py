@@ -63,15 +63,17 @@ def test_checkout_without_negotiation_is_at_list_price():
 
 
 def test_buyer_never_pays_more_than_the_shops_standing_offer():
-    shop = make_shop()
-    tools = ShopTools(shop, Conversation("c1"))
-    assert tools.run(ToolCall("propose_price", {"product_id": "jacket-denim", "offered_amount": "50"}))["price"] == "$76"
-    assert tools.run(ToolCall("propose_price", {"product_id": "jacket-denim", "offered_amount": "77"}))["price"] == "$76"
+    shop, convo = make_shop(), Conversation("c1")
+    assert ShopTools(shop, convo).run(ToolCall("propose_price", {"product_id": "jacket-denim", "offered_amount": "50"}))["price"] == "$76"
+    assert ShopTools(shop, convo).run(ToolCall("propose_price", {"product_id": "jacket-denim", "offered_amount": "77"}))["price"] == "$76"
 
 
 def test_negotiation_ends_in_a_final_offer_at_the_floor():
-    tools = ShopTools(make_shop(), Conversation("c1"))
-    answers = [tools.run(ToolCall("propose_price", {"product_id": "jacket-denim", "offered_amount": "40"})) for _ in range(4)]
+    shop, convo = make_shop(), Conversation("c1")
+    answers = [
+        ShopTools(shop, convo).run(ToolCall("propose_price", {"product_id": "jacket-denim", "offered_amount": "40"}))
+        for _ in range(4)
+    ]
     assert [a["price"] for a in answers] == ["$76", "$72", "$68", "$68"]
     assert answers[2]["final"] and answers[3]["final"]
 
@@ -151,6 +153,37 @@ def test_runaway_tool_loop_is_stopped():
     reply = agent.handle("whatsapp:+1", "show me everything")
     assert reply.text == SAFE_FALLBACK
     assert len(reply.tools_used) == 6
+
+
+def test_a_rewrite_does_not_use_up_a_negotiation_round():
+    agent, _, shop = agent_with([
+        call("propose_price", product_id="jacket-denim", offered_amount="50"),
+        say("Sure, $60 works!"),
+        call("propose_price", product_id="jacket-denim", offered_amount="50"),
+        say("I can do $76 for you."),
+    ])
+    store = agent._store
+    reply = agent.handle("whatsapp:+1", "50?")
+    assert reply.text == "I can do $76 for you."
+    assert store.get("whatsapp:+1").rounds == {"jacket-denim": 1}
+    assert store.get("whatsapp:+1").standing_offers == {"jacket-denim": 7600}
+
+
+def test_checkout_reply_must_state_the_price_actually_charged():
+    agent, _, shop = agent_with([
+        call("propose_price", product_id="jacket-denim", offered_amount="70"),
+        say("Deal at $70!"),
+    ])
+    agent.handle("whatsapp:+1", "70?")
+    agent._model.script = [
+        call("checkout", product_id="jacket-denim", size="M"),
+        say("Here's your checkout for $76"),
+        say("Here's your checkout for $70"),
+    ]
+    reply = agent.handle("whatsapp:+1", "M please")
+    assert reply.text == "Here's your checkout for $70"
+    assert reply.guard_rewrites == 1
+    assert shop.checkout.created[0].price_cents == 7000
 
 
 def test_each_customer_has_their_own_negotiation():

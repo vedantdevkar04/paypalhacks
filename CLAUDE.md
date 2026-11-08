@@ -1,7 +1,7 @@
 # HiClose: read this first
 
-This is the hub. Two people build this in parallel with separate Claude Code sessions that can't
-see each other, so everything we need to stay consistent lives here.
+This is the hub. Every Claude Code session on this repo reads it first, so everything needed to
+stay consistent lives here.
 
 ## What we're building
 
@@ -56,10 +56,9 @@ tests/
 Every channel turns its webhook into the same `IncomingMessage`, and sends replies through the
 same `send()` function. The agent never knows which platform it is on.
 
-## Shared message contract (US-40): PROPOSAL, Adi to confirm
+## Shared message contract (US-40)
 
-Vedant drafted this so the agent can be built against it. **Adi owns it.** Change it if you need
-to, and tell Vedant before you do. It lives in `hiclose/channels/base.py`.
+Every channel produces and consumes these. It lives in `hiclose/channels/base.py`.
 
 ```python
 Channel = Literal["web", "whatsapp", "instagram"]
@@ -95,28 +94,17 @@ drafting the list.
 
 ## Who owns what
 
-- **Vedant:** `hiclose/rules/`, `hiclose/agent/`, the Hi Benchmark, the Devpost write-up
-- **Adi:** `hiclose/paypal/`, `hiclose/channels/`, `hiclose/api/`, the owner app (AG Grid,
-  Bryntum), the Render deploy
-- **Both:** the demo brand and catalog, the benchmark messages, the video
-
-Stay in your lane, so two AI sessions don't edit the same files. If you swap work, edit this list.
-
-**Swap on 6 Nov:** Vedant built `hiclose/paypal/` (US-20, US-21, plus the capture, refund and
-webhook logic) so the demo had real checkout early. **Adi: don't rebuild it.** Extend it from here.
-It implements the agent's `CheckoutProvider` contract in `hiclose/agent/tools.py`. Still to do on
-your side:
-- the FastAPI routes: `/webhooks/paypal`, `/checkout/return`, `/checkout/cancel`
-- registering the webhook in the PayPal dashboard once Render gives us a URL
-- releasing stock holds when a checkout expires or is cancelled
+**As of 8 Nov, Vedant builds everything alone** (with Claude Code). Adi isn't taking part. Every
+lane is Vedant's, and the board's Adi stories are reassigned.
 
 ## Cut order
 
-There are two of us and seven days. If time runs short, cut from the top of this list first:
+There's one of us and four days. If time runs short, cut from the top of this list first:
 1. Bryntum Scheduler
 2. Voice notes
 3. Instagram (keep WhatsApp through Twilio, plus web chat)
-4. The owner's voice command (keep typed commands)
+4. The owner's voice command (dropped already: the agent runs on webhooks, with an on/off switch)
+5. The AG Studio agent-built chart (keep the plain dashboard)
 
 Never cut the core flow ("hi" to paid PayPal order), the rules engine, the webhook-only payment
 check, or the benchmark.
