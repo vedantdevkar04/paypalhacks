@@ -61,6 +61,14 @@ def create_app(
     def chat_page():
         return FileResponse(STATIC / "index.html")
 
+    @app.get("/owner")
+    def owner_page():
+        return FileResponse(STATIC / "owner.html")
+
+    @app.get("/api/owner")
+    def owner_data():
+        return {**service.owner_view(), "stats": stats(), "agent_enabled": service.enabled}
+
     @app.get("/health")
     def health():
         return {"ok": True, "agent_enabled": service.enabled}

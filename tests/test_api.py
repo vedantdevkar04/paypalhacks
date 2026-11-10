@@ -10,26 +10,29 @@ from tests.fakes import FakeModel, call, make_shop, say
 
 class FakePayments:
     def __init__(self):
-        self.orders: dict[str, OrderRecord] = {}
+        self._orders: dict[str, OrderRecord] = {}
 
     def create_checkout(self, quote):
-        order_id = f"ORD-{len(self.orders) + 1}"
+        order_id = f"ORD-{len(self._orders) + 1}"
         url = f"https://www.sandbox.paypal.com/checkoutnow?token={order_id}"
-        self.orders[order_id] = OrderRecord(order_id, quote, url)
+        self._orders[order_id] = OrderRecord(order_id, quote, url)
         return Checkout(order_id, url)
 
     def get_order(self, order_id):
-        return self.orders.get(order_id)
+        return self._orders.get(order_id)
+
+    def orders(self):
+        return list(self._orders.values())
 
     def confirm(self, order_id):
-        record = self.orders[order_id]
+        record = self._orders[order_id]
         if record.status == "CREATED":
             record.status = "PAID"
             record.ship_to = {"address": {"admin_area_2": "San Jose", "admin_area_1": "CA", "country_code": "US"}}
         return record
 
     def cancel(self, order_id):
-        record = self.orders.get(order_id)
+        record = self._orders.get(order_id)
         if record and record.status == "CREATED":
             record.status = "FAILED"
         return record
@@ -155,6 +158,37 @@ def test_rate_limit_window_slides():
     assert limiter.allow("ip") and not limiter.allow("ip")
     now[0] = 60
     assert limiter.allow("ip")
+
+
+def test_owner_dashboard_shows_the_funnel_chats_and_orders():
+    client, *_ = build([
+        call("propose_price", product_id="jacket-denim", offered_amount="70"), say("Deal at $70!"),
+        call("checkout", product_id="jacket-denim", size="M"), say("Here's your checkout for $70"),
+        say("Hi! How can I help?"),
+    ])
+    client.post("/api/chat", json={"customer_id": "riya", "text": "70?"})
+    client.post("/api/chat", json={"customer_id": "riya", "text": "M please"})
+    client.post("/api/chat", json={"customer_id": "tom", "text": "hi"})
+    client.get("/checkout/return", params={"token": "ORD-1"})
+    data = client.get("/api/owner").json()
+    assert [(s["label"], s["count"]) for s in data["funnel"]] == [
+        ("Started a chat", 2), ("Kept talking", 1), ("Negotiated", 1), ("Got a checkout link", 1), ("Paid", 1)]
+    stages = {c["customer"]: c["stage"] for c in data["chats"]}
+    assert stages == {"Web riya": "paid", "Web tom": "chatting"}
+    assert data["orders"] == [{"order_id": "ORD-1", "product": "Washed Denim Jacket", "size": "M", "price": "$70",
+                               "list_price": "$80", "status": "PAID", "ships_to": "San Jose, US"}]
+    assert client.get("/owner").status_code == 200
+
+
+def test_whatsapp_numbers_are_masked_on_the_dashboard():
+    from hiclose.api.service import masked
+    assert masked("whatsapp:+919876543298") == "WhatsApp ···3298"
+
+
+def test_handed_off_chat_shows_owner_needed():
+    client, *_ = build([call("hand_to_owner", reason="complaint"), say("The owner will reply soon.")])
+    client.post("/api/chat", json={"customer_id": "riya", "text": "it arrived broken"})
+    assert client.get("/api/owner").json()["chats"][0]["stage"] == "owner needed"
 
 
 def test_chat_page_is_served():

@@ -88,6 +88,9 @@ class PayPalCheckout:
     def get_order(self, order_id: str) -> OrderRecord | None:
         return self._orders.get(order_id)
 
+    def orders(self) -> list[OrderRecord]:
+        return self._orders.all()
+
     def cancel(self, order_id: str) -> OrderRecord | None:
         record = self._orders.get(order_id)
         if record is not None and record.status == "CREATED":

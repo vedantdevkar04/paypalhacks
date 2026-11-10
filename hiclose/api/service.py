@@ -37,6 +37,30 @@ class Stats:
         del self.events[:-500]
 
 
+STAGE_ORDER = ["chatting", "negotiating", "checkout", "paid"]
+
+
+@dataclass
+class ChatSummary:
+    customer: str
+    channel: str
+    stage: str = "chatting"
+    messages: int = 0
+    last_customer: str = ""
+    last_shop: str = ""
+    updated_at: str = ""
+    negotiated: bool = False
+    order_id: str | None = None
+    owner_needed: bool = False
+
+
+def masked(customer_id: str) -> str:
+    channel, _, ident = customer_id.partition(":")
+    if channel == "whatsapp":
+        return f"WhatsApp ···{ident[-4:]}"
+    return f"{channel.title()} {ident[:12]}"
+
+
 class HiCloseService:
     def __init__(self, agent: SalesAgent, shop: Shop, payments: Payments, channels: dict[str, ChannelAdapter], workers: int | None = None):
         self.agent = agent
@@ -50,6 +74,16 @@ class HiCloseService:
         self._seen: set[str] = set()
         self._order_owner: dict[str, tuple[str, str]] = {}
         self._notified: set[str] = set()
+        self.chats: dict[str, ChatSummary] = {}
+
+    def _chat(self, channel: str, customer: str) -> ChatSummary:
+        chat = self.chats.setdefault(customer, ChatSummary(masked(customer), channel))
+        chat.updated_at = datetime.now(timezone.utc).isoformat(timespec="seconds")
+        return chat
+
+    def _advance(self, chat: ChatSummary, stage: str) -> None:
+        if STAGE_ORDER.index(stage) > STAGE_ORDER.index(chat.stage if chat.stage in STAGE_ORDER else "chatting"):
+            chat.stage = stage
 
     async def handle(self, message: IncomingMessage) -> OutgoingMessage | None:
         key = f"{message.channel}:{message.message_id}"
@@ -57,7 +91,10 @@ class HiCloseService:
             return None
         self._seen.add(key)
         self.stats.messages += 1
-        self.stats.log("message", customer=message.customer_id, channel=message.channel)
+        self.stats.log("message", customer=masked(message.customer_id), channel=message.channel)
+        chat = self._chat(message.channel, message.customer_id)
+        chat.messages += 1
+        chat.last_customer = message.text[:200]
         if not self.enabled:
             return await self._send(OutgoingMessage(message.channel, message.customer_id, "Thanks for your message! We'll reply soon."))
         async with self._slots, self._locks[message.customer_id]:
@@ -66,13 +103,20 @@ class HiCloseService:
             return None
         self.stats.replies += 1
         self.stats.guard_rewrites += reply.guard_rewrites
+        chat.last_shop = reply.text[:200]
+        if "propose_price" in reply.tools_used:
+            chat.negotiated = True
+            self._advance(chat, "negotiating")
         if reply.handed_off:
+            chat.owner_needed = True
             self.stats.handed_off += 1
-            self.stats.log("handoff", customer=message.customer_id)
+            self.stats.log("handoff", customer=chat.customer)
         if reply.order_id:
             self._order_owner[reply.order_id] = (message.channel, message.customer_id)
+            chat.order_id = reply.order_id
+            self._advance(chat, "checkout")
             self.stats.checkouts += 1
-            self.stats.log("checkout", customer=message.customer_id, order=reply.order_id)
+            self.stats.log("checkout", customer=chat.customer, order=reply.order_id)
         return await self._send(OutgoingMessage(message.channel, message.customer_id, reply.text, reply.checkout_url))
 
     async def payment_returned(self, order_id: str) -> OrderRecord:
@@ -91,6 +135,8 @@ class HiCloseService:
         owner = self._order_owner.get(record.order_id)
         if owner is None:
             return
+        if owner[1] in self.chats:
+            self._advance(self.chats[owner[1]], "paid")
         product = self.shop.catalog.get(quote.product_id)
         address = (record.ship_to or {}).get("address", {})
         place = ", ".join(p for p in (address.get("admin_area_2"), address.get("admin_area_1")) if p)
@@ -110,6 +156,35 @@ class HiCloseService:
         owner = self._order_owner.get(order_id)
         if owner:
             await self._send(OutgoingMessage(owner[0], owner[1], "No worries, I've cancelled that checkout. Just say if you'd like it again!"))
+
+    def owner_view(self) -> dict:
+        chats = list(self.chats.values())
+        funnel = [
+            ("Started a chat", len(chats)),
+            ("Kept talking", sum(c.messages >= 2 for c in chats)),
+            ("Negotiated", sum(c.negotiated for c in chats)),
+            ("Got a checkout link", sum(c.order_id is not None for c in chats)),
+            ("Paid", sum(c.stage == "paid" for c in chats)),
+        ]
+        orders = []
+        list_orders = getattr(self.payments, "orders", None)
+        for record in (list_orders() if callable(list_orders) else []):
+            quote = record.quote
+            address = (record.ship_to or {}).get("address", {})
+            orders.append({
+                "order_id": record.order_id,
+                "product": self.shop.catalog.get(quote.product_id).name,
+                "size": "" if quote.size == "ONE" else quote.size,
+                "price": fmt(quote.price_cents, quote.currency),
+                "list_price": fmt(self.shop.catalog.get(quote.product_id).list_cents, quote.currency),
+                "status": record.status,
+                "ships_to": ", ".join(p for p in (address.get("admin_area_2"), address.get("country_code")) if p),
+            })
+        rows = [
+            {**{k: v for k, v in vars(c).items() if k != "negotiated"}, "stage": "owner needed" if c.owner_needed and c.stage != "paid" else c.stage}
+            for c in sorted(chats, key=lambda c: c.updated_at, reverse=True)
+        ]
+        return {"funnel": [{"label": label, "count": n} for label, n in funnel], "chats": rows, "orders": orders}
 
     async def _send(self, message: OutgoingMessage) -> OutgoingMessage:
         channel = self.channels.get(message.channel)

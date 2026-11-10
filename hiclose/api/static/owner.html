@@ -1,0 +1,135 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>HiClose owner dashboard</title>
+<script src="https://cdn.jsdelivr.net/npm/ag-grid-community@33.3.2/dist/ag-grid-community.min.js"></script>
+<style>
+  :root { --bg: #f4f2ee; --panel: #fff; --ink: #1d1b19; --muted: #6f6a63; --line: #e6e1d9; --brand: #2f3a8f; --bar: #c9cdf0; --ok: #1f7a4d; --warn: #b4541a; }
+  @media (prefers-color-scheme: dark) {
+    :root { --bg: #151413; --panel: #1f1d1b; --ink: #f2efe9; --muted: #a39d94; --line: #34312d; --brand: #8b96ec; --bar: #3b4178; }
+  }
+  * { box-sizing: border-box; }
+  body { margin: 0; background: var(--bg); color: var(--ink); font: 15px/1.45 system-ui, -apple-system, "Segoe UI", sans-serif; }
+  main { max-width: 1180px; margin: 0 auto; padding: 16px; display: grid; gap: 16px; }
+  header { display: flex; justify-content: space-between; align-items: end; flex-wrap: wrap; gap: 8px; }
+  h1 { margin: 0; font-size: 22px; }
+  header p { margin: 2px 0 0; color: var(--muted); font-size: 13px; }
+  header a { color: var(--brand); font-size: 14px; }
+  .tiles { display: grid; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); gap: 12px; }
+  .tile, .card { background: var(--panel); border: 1px solid var(--line); border-radius: 14px; padding: 14px 16px; }
+  .tile b { display: block; font-size: 26px; font-variant-numeric: tabular-nums; }
+  .tile span { color: var(--muted); font-size: 13px; }
+  .card h2 { font-size: 15px; margin: 0 0 10px; }
+  .funnel { display: grid; gap: 8px; }
+  .row { display: grid; grid-template-columns: 170px 1fr 40px; gap: 10px; align-items: center; font-size: 14px; }
+  .track { background: var(--line); border-radius: 6px; height: 22px; overflow: hidden; }
+  .fill { background: var(--bar); height: 100%; border-radius: 6px; transition: width .4s; }
+  .row:last-child .fill { background: var(--ok); }
+  .row .n { text-align: right; font-variant-numeric: tabular-nums; font-weight: 600; }
+  .grid { height: 340px; }
+  .note { color: var(--muted); font-size: 12.5px; margin: 8px 0 0; }
+  @media (max-width: 600px) { .row { grid-template-columns: 110px 1fr 32px; } }
+</style>
+</head>
+<body>
+<main>
+  <header>
+    <div><h1 id="title">Indigo Lane · owner dashboard</h1><p>Every chat the agent handled, live. Refreshes every 5 seconds.</p></div>
+    <a href="/">Open the shop chat →</a>
+  </header>
+  <section class="tiles" id="tiles"></section>
+  <section class="card">
+    <h2>From "hi" to paid</h2>
+    <div class="funnel" id="funnel"></div>
+  </section>
+  <section class="card">
+    <h2>Conversations</h2>
+    <div class="grid" id="chats"></div>
+    <p class="note">Customer numbers are masked. "Owner needed" chats are complaints, returns and other things the agent hands to you.</p>
+  </section>
+  <section class="card">
+    <h2>Orders (PayPal sandbox)</h2>
+    <div class="grid" id="orders"></div>
+    <p class="note">An order shows PAID only after PayPal confirms the capture for the exact quoted amount.</p>
+  </section>
+</main>
+<script>
+const $ = (id) => document.getElementById(id);
+if (agGrid.ModuleRegistry && agGrid.AllCommunityModule) agGrid.ModuleRegistry.registerModules([agGrid.AllCommunityModule]);
+const dark = matchMedia("(prefers-color-scheme: dark)").matches;
+const theme = dark && agGrid.colorSchemeDark ? agGrid.themeQuartz.withPart(agGrid.colorSchemeDark) : agGrid.themeQuartz;
+const stageStyle = (p) => ({ paid: { color: "#1f7a4d", fontWeight: 600 }, "owner needed": { color: "#b4541a", fontWeight: 600 } }[p.value] || null);
+
+const chats = agGrid.createGrid($("chats"), {
+  theme, rowData: [], getRowId: (p) => p.data.customer,
+  defaultColDef: { sortable: true, filter: true, resizable: true },
+  columnDefs: [
+    { field: "customer", headerName: "Customer", minWidth: 150 },
+    { field: "channel", headerName: "Channel", width: 110 },
+    { field: "stage", headerName: "Stage", width: 140, cellStyle: stageStyle },
+    { field: "messages", headerName: "Msgs", width: 90 },
+    { field: "last_customer", headerName: "Last from customer", flex: 1, minWidth: 180 },
+    { field: "last_shop", headerName: "Last reply", flex: 1.4, minWidth: 220 },
+    { field: "updated_at", headerName: "Updated (UTC)", width: 170, sort: "desc", valueFormatter: (p) => (p.value || "").replace("T", " ").slice(0, 19) },
+  ],
+});
+const orders = agGrid.createGrid($("orders"), {
+  theme, rowData: [], getRowId: (p) => p.data.order_id,
+  defaultColDef: { sortable: true, filter: true, resizable: true },
+  columnDefs: [
+    { field: "order_id", headerName: "PayPal order", minWidth: 180 },
+    { field: "product", headerName: "Product", flex: 1, minWidth: 160 },
+    { field: "size", headerName: "Size", width: 80 },
+    { field: "list_price", headerName: "List", width: 90 },
+    { field: "price", headerName: "Sold at", width: 100 },
+    { field: "status", headerName: "Status", width: 110, cellStyle: (p) => (p.value === "PAID" ? { color: "#1f7a4d", fontWeight: 600 } : null) },
+    { field: "ships_to", headerName: "Ships to", width: 150 },
+  ],
+});
+
+function tile(value, label) {
+  const t = document.createElement("div");
+  t.className = "tile";
+  const b = document.createElement("b"); b.textContent = value;
+  const s = document.createElement("span"); s.textContent = label;
+  t.append(b, s);
+  return t;
+}
+
+function renderFunnel(steps) {
+  const top = Math.max(1, steps[0]?.count || 0);
+  $("funnel").replaceChildren(...steps.map((step) => {
+    const row = document.createElement("div"); row.className = "row";
+    const label = document.createElement("span"); label.textContent = step.label;
+    const track = document.createElement("div"); track.className = "track";
+    const fill = document.createElement("div"); fill.className = "fill"; fill.style.width = `${(100 * step.count) / top}%`;
+    track.append(fill);
+    const n = document.createElement("span"); n.className = "n"; n.textContent = step.count;
+    row.append(label, track, n);
+    return row;
+  }));
+}
+
+async function refresh() {
+  try {
+    const data = await (await fetch("/api/owner")).json();
+    const s = data.stats;
+    const revenue = Object.values(s.revenue).join(" + ") || "$0";
+    $("tiles").replaceChildren(
+      tile(s.messages, "messages in"), tile(s.replies, "agent replies"), tile(s.checkouts, "checkout links"),
+      tile(s.paid, "paid orders"), tile(revenue, "revenue (sandbox)"), tile(s.guard_rewrites, "replies the guardrail fixed"),
+    );
+    renderFunnel(data.funnel);
+    chats.setGridOption("rowData", data.chats);
+    orders.setGridOption("rowData", data.orders);
+  } catch {
+    // server waking up; try again on the next tick
+  }
+}
+refresh();
+setInterval(refresh, 5000);
+</script>
+</body>
+</html>
