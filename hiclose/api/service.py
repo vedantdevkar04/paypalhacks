@@ -145,6 +145,21 @@ class HiCloseService:
         text += f". Order {record.order_id}" + (f", shipping to {place}." if place else ".") + " Thank you! 💛"
         await self._send(OutgoingMessage(owner[0], owner[1], text))
 
+    def release_expired(self, now: datetime | None = None) -> list[str]:
+        """Unpaid checkouts past their 15-minute hold give their item back to stock."""
+        now = now or datetime.now(timezone.utc)
+        list_orders = getattr(self.payments, "orders", None)
+        released = []
+        for record in (list_orders() if callable(list_orders) else []):
+            if record.status != "CREATED" or record.quote.expires_at > now:
+                continue
+            self.payments.cancel(record.order_id)
+            if record.quote.size:
+                self.shop.catalog.release(record.quote.product_id, record.quote.size)
+            self.stats.log("expired", order=record.order_id)
+            released.append(record.order_id)
+        return released
+
     async def checkout_cancelled(self, order_id: str) -> None:
         record = self.payments.cancel(order_id)
         if record is None or order_id in self._notified:

@@ -110,6 +110,24 @@ def test_cancelled_checkout_puts_the_stock_back_and_tells_the_customer():
     assert "cancelled" in transcript(client)[-1]["text"]
 
 
+def test_expired_hold_puts_the_stock_back_and_paid_orders_are_kept():
+    from datetime import timedelta
+
+    client, service, shop, _ = build([
+        call("checkout", product_id="jacket-denim", size="M"), say("Here's your checkout for $80"),
+        call("checkout", product_id="jacket-denim", size="L"), say("Here's your checkout for $80"),
+    ])
+    client.post("/api/chat", json={"customer_id": "riya", "text": "M please"})
+    client.post("/api/chat", json={"customer_id": "tom", "text": "L please"})
+    client.get("/checkout/return", params={"token": "ORD-2"})
+    assert (shop.catalog.in_stock("jacket-denim", "M"), shop.catalog.in_stock("jacket-denim", "L")) == (1, 2)
+    later = service.payments.get_order("ORD-1").quote.expires_at + timedelta(seconds=1)
+    assert service.release_expired(later) == ["ORD-1"]
+    assert (shop.catalog.in_stock("jacket-denim", "M"), shop.catalog.in_stock("jacket-denim", "L")) == (2, 2)
+    assert service.payments.get_order("ORD-2").status == "PAID"
+    assert service.release_expired(later) == []
+
+
 def test_duplicate_message_is_handled_once():
     client, _, _, model = build([say("Hi there!")])
     body = {"customer_id": "riya", "text": "hi", "message_id": "m-1"}

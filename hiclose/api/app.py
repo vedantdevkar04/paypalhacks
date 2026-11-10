@@ -9,6 +9,7 @@ import os
 from pathlib import Path
 
 import logging
+from contextlib import asynccontextmanager
 
 from fastapi import FastAPI, HTTPException, Request
 from fastapi.responses import FileResponse, HTMLResponse, Response
@@ -47,7 +48,21 @@ def create_app(
     limiter: RateLimiter | None = None,
     whatsapp: WhatsAppChannel | None = None,
 ) -> FastAPI:
-    app = FastAPI(title="HiClose")
+    @asynccontextmanager
+    async def lifespan(_app):
+        async def sweep():
+            while True:
+                await asyncio.sleep(60)
+                try:
+                    service.release_expired()
+                except Exception:
+                    log.exception("hold sweep failed")
+
+        task = asyncio.create_task(sweep())
+        yield
+        task.cancel()
+
+    app = FastAPI(title="HiClose", lifespan=lifespan)
     limiter = limiter or RateLimiter(int(os.environ.get("CHAT_LIMIT_PER_MINUTE", "20")), 60)
     app.state.tasks = set()
 
