@@ -21,6 +21,46 @@ PayPal's webhook is the only proof that an order is paid.
 This is our entry for the **PayPal AI Hackathon**. Submissions close **Thu 12 Nov 2026, 12:00 PM PT**,
 and we aim to submit by **09:00 PT**. Rules: https://paypalaihackathon.devpost.com/rules
 
+## Status and handover (11 Nov 2026), read this to pick up where we left off
+
+Vedant moved to a new laptop on 11 Nov. Everything below is pushed to
+https://github.com/vedantdevkar04/paypalhacks except `.env`, which is never committed.
+
+**Live:** https://hiclose.onrender.com (shop chat) and https://hiclose.onrender.com/owner (AG Grid
+dashboard). Render free plan, auto-deploys from `main` via `render.yaml`. Secrets are set in the
+Render dashboard: PayPal, Gemini, Twilio, `PAYPAL_WEBHOOK_ID`.
+
+**Done and verified live:**
+- the rules engine, the sales agent (Gemini 3.6 Flash, fallback 3.5 Flash-Lite, prompt `sales-v2`)
+  and its guardrails (invented prices, prompt leaks)
+- the web chat: "hi" → negotiation → PayPal sandbox payment → the shop's own "Paid ✅"
+- PayPal: Orders v2, capture with the 4-point check, refunds, webhooks registered and verified
+- the server: workers, a lock per customer, duplicates dropped, rate limit, 15-minute hold expiry
+- the owner dashboard
+- the Hi Benchmark: HiClose 40/40, in `bench/results/RESULTS.md`
+- 144 tests: `python -m pytest -q`
+
+**In progress: WhatsApp (US-42).** Use Twilio's **classic sandbox +1 415 523 8886**, not the trial
+sender +1 737 250 8034. The live server receives WhatsApp messages and the agent replies, but on
+10 Nov the reply did not reach Vedant's phone. Check in this order:
+1. Has the phone joined the classic sandbox? The join phrase is on Twilio's sandbox page.
+2. Is Render's `TWILIO_WHATSAPP_FROM` set to `whatsapp:+14155238886`?
+3. What does Twilio → Monitor → Logs → Errors say? 63015 means not joined; 63007 means wrong sender.
+If WhatsApp can't be fixed in time, the web chat alone is a complete entry: say so in the README's
+limits and keep WhatsApp out of the video.
+
+**Left before submitting:**
+1. Fill the README placeholders: the WhatsApp join phrase, a sandbox buyer login for judges, and the
+   video link.
+2. Record the video using `submission/VIDEO.md` (under 3:00, no Instagram UI or logo).
+3. Submit on Devpost using `submission/DEVPOST.md`, and opt in to AG Grid and Render.
+
+**Gotchas learned the hard way:**
+- PayPal sandbox accounts must be **US** and used in an **incognito** window. Uncaptured orders
+  expire within hours. Regenerating the app's keys orphans older orders.
+- `gemini-2.5-flash` is retired for new keys, and 3.8 or 3.7 Flash are often overloaded (503).
+- On Windows, send non-ASCII test messages from Python, not curl in Git Bash.
+
 ## Hard rules (do not break these)
 
 1. **Code decides the money; the model only talks.** A model never sets a price, a discount, a
