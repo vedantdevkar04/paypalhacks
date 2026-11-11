@@ -3,7 +3,10 @@
 from dataclasses import dataclass
 from typing import Protocol
 
-from hiclose.agent.conversation import Conversation
+import logging
+
+from hiclose.agent.conversation import MAX_TRYONS, Conversation
+from hiclose.agent.tryon import TryOnStudio
 from hiclose.agent.llm import ToolCall, ToolSpec
 from hiclose.agent.money import fmt, parse_amount
 from hiclose.rules import Catalog, CatalogError, Quote, QuoteBook, decide
@@ -34,6 +37,7 @@ class Shop:
     catalog: Catalog
     quotes: QuoteBook
     checkout: CheckoutProvider
+    tryon: TryOnStudio | None = None  # None: try-ons switched off
 
 
 SPECS = [
@@ -47,6 +51,13 @@ SPECS = [
         "show_photo",
         "Send the customer a photo of a product. Use when you first greet them about a product, or when they "
         "ask to see it or what it looks like. The photo is attached to your reply automatically; never write a link.",
+        {"type": "object", "properties": {"product_id": {"type": "string"}}, "required": ["product_id"]},
+    ),
+    ToolSpec(
+        "try_on",
+        "Show the customer a preview of themselves wearing or carrying a product, made from a photo they sent. "
+        "Use when they ask how something would look on them. If they haven't sent a photo, it tells you to ask. "
+        "The image is attached to your reply automatically.",
         {"type": "object", "properties": {"product_id": {"type": "string"}}, "required": ["product_id"]},
     ),
     ToolSpec(
@@ -133,6 +144,29 @@ class ShopTools:
             return {"ok": False, "error": "no photo for this product; describe it in words instead"}
         self.image_url = f"/products/{product.image}"
         return {"ok": True, "say": "The photo is attached to your reply. Don't describe it as a link."}
+
+    def _try_on(self, product_id: str) -> dict:
+        product = self._shop.catalog.get(product_id)
+        studio = self._shop.tryon
+        if studio is None or not product.image:
+            return {"ok": False, "error": "try-ons aren't available for this item; offer a product photo with show_photo"}
+        photo = self._convo.fresh_photo()
+        if photo is None:
+            return {"ok": True, "needs_photo": True,
+                    "say": "Ask the customer to send a clear, well-lit photo of themselves from the waist up, "
+                           "and you'll show them the item on them. Their photo is only used for the preview."}
+        if self._convo.tryons >= MAX_TRYONS:
+            return {"ok": False, "error": "try-on limit reached for this chat; help them choose a size instead"}
+        try:
+            url = studio.render(photo, product)
+        except Exception:
+            logging.getLogger("hiclose").warning("try-on failed for %s", product_id, exc_info=True)
+            return {"ok": False, "error": "couldn't make a preview from that photo; ask for a clearer, well-lit "
+                                          "photo of them from the waist up, or offer show_photo"}
+        self._convo.tryons += 1
+        self.image_url = url
+        return {"ok": True, "say": "The try-on preview is attached. Say it's an AI preview and the real fit may "
+                                   "differ, then help them pick a size. Don't comment on their body or looks."}
 
     def _propose_price(self, product_id: str, offered_amount: str) -> dict:
         if product_id in self._priced_this_turn:

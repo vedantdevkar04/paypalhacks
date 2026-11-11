@@ -90,6 +90,14 @@ def create_app(
 
     app.mount("/products", StaticFiles(directory=STATIC / "products"), name="products")
 
+    @app.get("/tryon/{token}")
+    def tryon_image(token: str):
+        studio = service.shop.tryon
+        photo = studio.get(token) if studio else None
+        if photo is None:
+            raise HTTPException(404, "this preview has expired")
+        return Response(photo.data, media_type=photo.mime, headers={"Cache-Control": "private, max-age=3600"})
+
     @app.get("/")
     def chat_page():
         return FileResponse(STATIC / "index.html")
@@ -215,6 +223,7 @@ def create_default_app() -> FastAPI:
     from dotenv import load_dotenv
 
     from hiclose.agent import ConversationStore, GeminiModel, SalesAgent, Shop
+    from hiclose.agent.tryon import GeminiImageModel, TryOnStudio
     from hiclose.paypal import OrderBook, PayPalCheckout, PayPalClient
     from hiclose.rules import Catalog, QuoteBook
 
@@ -222,7 +231,9 @@ def create_default_app() -> FastAPI:
     client = PayPalClient.from_env()
     brand = os.environ.get("SHOP_BRAND", "Indigo Lane")
     payments = PayPalCheckout(client, OrderBook(), brand)
-    shop = Shop(brand, Catalog.from_json(ROOT / "fixtures" / "catalog.json"), QuoteBook(), payments)
+    image_model = GeminiImageModel.from_env() if os.environ.get("TRYON_ENABLED", "1") == "1" else None
+    studio = TryOnStudio(image_model, STATIC / "products") if image_model else None
+    shop = Shop(brand, Catalog.from_json(ROOT / "fixtures" / "catalog.json"), QuoteBook(), payments, studio)
     agent = SalesAgent(GeminiModel.from_env(), shop, ConversationStore())
     web = WebChannel()
     whatsapp = WhatsAppChannel.from_env()

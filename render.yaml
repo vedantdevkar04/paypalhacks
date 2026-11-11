@@ -17,6 +17,10 @@ services:
         value: gemini-3.6-flash
       - key: GEMINI_SMALL_MODEL
         value: gemini-3.5-flash-lite
+      - key: GEMINI_IMAGE_MODELS
+        value: gemini-3.1-flash-image,gemini-2.5-flash-image
+      - key: TRYON_ENABLED
+        value: "1"
       - key: SHOP_BRAND
         value: Indigo Lane
       - key: WORKER_COUNT

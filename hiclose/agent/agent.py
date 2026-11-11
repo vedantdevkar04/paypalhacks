@@ -7,6 +7,7 @@ from hiclose.agent.guardrail import leaked_instructions, price_violations
 from hiclose.agent.instructions import BUSY_FALLBACK, CORRECTION, LEAK_CORRECTION, SAFE_FALLBACK, render_user, system_prompt
 from hiclose.agent.llm import ChatModel, ModelUnavailable
 from hiclose.agent.tools import Shop, ShopTools
+from hiclose.agent.tryon import Photo
 
 
 @dataclass(frozen=True)
@@ -28,21 +29,27 @@ class SalesAgent:
         self._max_steps = max_steps
         self._system = system_prompt(shop.brand)
 
-    def _context(self, post_id: str | None, handed_off: str | None) -> str | None:
+    def _context(self, post_id: str | None, handed_off: str | None, sent_photo: bool = False) -> str | None:
         notes = []
         product = self._shop.catalog.for_post(post_id)
         if product is not None:
             notes.append(f"The customer is messaging about post {post_id}, which shows product_id {product.product_id} ({product.name}).")
         if handed_off:
             notes.append(f"Earlier this chat was passed to the owner for: {handed_off}. Keep helping with shopping questions.")
+        if sent_photo:
+            notes.append("The customer just sent a photo. If it's of themselves and they want to see an item on them, "
+                         "call try_on for it; if you don't know which item, ask. If it's not of them, ask what they'd like.")
         return " ".join(notes) or None
 
-    def handle(self, customer_id: str, text: str, post_id: str | None = None) -> AgentReply | None:
+    def handle(self, customer_id: str, text: str, post_id: str | None = None, photo: Photo | None = None) -> AgentReply | None:
         convo = self._store.get(customer_id)
         if convo.owner_active:
             return None
+        if photo is not None:
+            convo.keep_photo(photo)
         tools = ShopTools(self._shop, convo)
-        convo.history.append(self._model.user_turn(render_user(text, self._context(post_id, convo.handed_off))))
+        context = self._context(post_id, convo.handed_off, sent_photo=photo is not None and self._shop.tryon is not None)
+        convo.history.append(self._model.user_turn(render_user(text, context)))
         used: list[str] = []
         rewrites = 0
 

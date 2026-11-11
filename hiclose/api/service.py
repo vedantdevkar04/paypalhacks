@@ -2,6 +2,7 @@
 messages the shop sends on its own when PayPal confirms or a checkout is cancelled."""
 
 import asyncio
+import logging
 import os
 from collections import defaultdict
 from dataclasses import dataclass, field
@@ -12,6 +13,8 @@ from hiclose.agent import SalesAgent, Shop
 from hiclose.agent.money import fmt
 from hiclose.channels.base import ChannelAdapter, IncomingMessage, OutgoingMessage
 from hiclose.paypal.orders import OrderRecord
+
+log = logging.getLogger("hiclose")
 
 
 class Payments(Protocol):
@@ -99,8 +102,9 @@ class HiCloseService:
         chat.last_customer = message.text[:200]
         if not self.enabled:
             return await self._send(OutgoingMessage(message.channel, message.customer_id, "Thanks for your message! We'll reply soon."), deliver)
+        photo = await self._fetch_photo(message)
         async with self._slots, self._locks[message.customer_id]:
-            reply = await asyncio.to_thread(self.agent.handle, message.customer_id, message.text, message.post_id)
+            reply = await asyncio.to_thread(self.agent.handle, message.customer_id, message.text, message.post_id, photo)
         if reply is None:
             return None
         self.stats.replies += 1
@@ -202,6 +206,19 @@ class HiCloseService:
             for c in sorted(chats, key=lambda c: c.updated_at, reverse=True)
         ]
         return {"funnel": [{"label": label, "count": n} for label, n in funnel], "chats": rows, "orders": orders}
+
+    async def _fetch_photo(self, message: IncomingMessage):
+        """The first photo attached to the message, if the channel can hand it over. Only used for try-ons."""
+        if not message.media_urls or self.shop.tryon is None:
+            return None
+        fetch = getattr(self.channels.get(message.channel), "fetch_photo", None)
+        if fetch is None:
+            return None
+        try:
+            return await fetch(message.media_urls[0])
+        except Exception:
+            log.warning("couldn't fetch the photo on %s message %s", message.channel, message.message_id)
+            return None
 
     async def _send(self, message: OutgoingMessage, deliver: bool = True) -> OutgoingMessage:
         channel = self.channels.get(message.channel)

@@ -7,11 +7,12 @@ import hashlib
 import hmac
 import logging
 import os
-from urllib.parse import parse_qsl
+from urllib.parse import parse_qsl, urlparse
 from xml.sax.saxutils import escape as xml_escape
 
 import httpx
 
+from hiclose.agent.tryon import Photo, acceptable
 from hiclose.channels.base import IncomingMessage, OutgoingMessage
 
 
@@ -44,6 +45,22 @@ class WhatsAppChannel:
             return None
         base = os.environ.get("PUBLIC_BASE_URL") or os.environ.get("RENDER_EXTERNAL_URL") or ""
         return cls(sid, token, os.environ.get("TWILIO_WHATSAPP_FROM", "whatsapp:+14155238886"), public_base_url=base)
+
+    async def fetch_photo(self, url: str) -> Photo | None:
+        """Download a photo the customer attached. Only Twilio's own media host, with our credentials:
+        this is the platform's attachment, not a link the customer typed (hard rule 7)."""
+        parts = urlparse(url)
+        if parts.scheme != "https" or parts.hostname != "api.twilio.com":
+            return None
+        try:
+            async with httpx.AsyncClient(transport=self._transport, timeout=10, follow_redirects=True) as client:
+                response = await client.get(url, auth=(self._sid, self._token))
+        except httpx.HTTPError:
+            logging.getLogger("hiclose").warning("couldn't download whatsapp photo")
+            return None
+        if response.is_error:
+            return None
+        return acceptable(response.content, response.headers.get("content-type", ""))
 
     def media_url(self, message: OutgoingMessage) -> str | None:
         """The photo as an https URL Twilio can fetch, or None (no photo, or no public address)."""
