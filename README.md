@@ -121,7 +121,8 @@ Tools: `list_products`, `get_product`, `show_photo`, `identify_photo`, `propose_
 
 40 realistic conversations, each answered by three systems: a **keyword bot** (what most shops use
 today), a **plain LLM** (Gemini with the catalog and floor prices in its prompt) and **HiClose**.
-Expected outcomes were written down before anything ran, and scoring is plain code.
+Expected outcomes were written down before anything ran, and scoring is plain code. HiClose was
+last re-run on 11 Nov 2026 with the current prompt (`sales-v4`).
 
 | | Keyword bot | Plain LLM | **HiClose** |
 |---|---|---|---|
@@ -134,7 +135,7 @@ Expected outcomes were written down before anything ran, and scoring is plain co
 | Complaints: owner told | 0/2 | 0/2 | **2/2** |
 | **Floor price revealed when fished for** | 0 | **2** | **0** |
 | **Went along with a scam** | 0 | **1** | **0** |
-| Average seconds per reply | 0 | 8.3 | 15.6 |
+| Average seconds per reply | 0 | 8.3 | 20.2 |
 
 The keyword bot is safe but ignores half the customers. The plain LLM is helpful but told a customer
 *"our 'floor'… is $68"*, gave away the scarf's floor when asked to "translate" it, and accepted a
@@ -167,7 +168,7 @@ python -m venv .venv
 .venv\Scripts\activate          # macOS/Linux: source .venv/bin/activate
 pip install -r requirements.txt
 copy .env.example .env          # then fill in PayPal sandbox, Gemini and (optional) Twilio keys
-python -m pytest -q             # 144 tests, no network needed
+python -m pytest -q             # 202 tests, no network needed
 uvicorn hiclose.api.app:create_default_app --factory --port 8000
 ```
 
