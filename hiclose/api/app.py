@@ -6,6 +6,7 @@
 import asyncio
 import html
 import os
+from datetime import datetime
 from pathlib import Path
 
 import logging
@@ -20,7 +21,9 @@ from hiclose.api.ratelimit import RateLimiter
 from hiclose.api.service import HiCloseService
 from hiclose.channels import OutgoingMessage, WebChannel
 from hiclose.channels.whatsapp import WhatsAppChannel
+from hiclose.logistics import DispatchBoard, DispatchError
 from hiclose.paypal import PayPalError, PayPalWebhooks
+from hiclose.rules import CatalogError
 
 ROOT = Path(__file__).resolve().parents[2]
 STATIC = Path(__file__).parent / "static"
@@ -209,6 +212,46 @@ def create_app(
                 replies.append(reply)
         return Response(whatsapp.twiml(replies), media_type="application/xml")
 
+    # ---- dispatch board (Bryntum page at /dispatch) -------------------------------------------
+
+    def board() -> DispatchBoard:
+        if service.dispatch is None:
+            raise HTTPException(503, "dispatch board not configured")
+        return service.dispatch
+
+    def stock_of(product_id: str) -> int:
+        catalog = service.shop.catalog
+        try:
+            return sum(catalog.in_stock(product_id, size) for size in catalog.get(product_id).sizes)
+        except CatalogError:
+            return 0
+
+    @app.get("/dispatch")
+    def dispatch_page():
+        return FileResponse(STATIC / "dispatch.html")
+
+    @app.get("/api/dispatch")
+    def dispatch_view():
+        return board().view(stock_of)
+
+    @app.post("/api/dispatch/assign")
+    def dispatch_assign(payload: dict):
+        shipment_id, resource = str(payload.get("shipment_id", "")), str(payload.get("driver_id", ""))
+        try:
+            if resource == "unassigned":
+                board().unassign(shipment_id)
+                return {"ok": True, "board": board().view(stock_of)}
+            start = datetime.fromisoformat(str(payload.get("start", "")))
+            placed = board().assign(shipment_id, resource, start)
+        except (DispatchError, ValueError) as error:
+            raise HTTPException(400, str(error))
+        return {"ok": placed.ok, "reason": placed.reason, "board": board().view(stock_of)}
+
+    @app.post("/api/dispatch/auto")
+    def dispatch_auto():
+        result = board().auto_assign()
+        return {**result, "board": board().view(stock_of)}
+
     @app.get("/api/stats")
     def stats():
         s = service.stats
@@ -241,7 +284,8 @@ def create_default_app() -> FastAPI:
     web = WebChannel()
     whatsapp = WhatsAppChannel.from_env()
     channels = {"web": web, **({"whatsapp": whatsapp} if whatsapp else {})}
-    service = HiCloseService(agent, shop, payments, channels)
+    dispatch = DispatchBoard.from_json(ROOT / "fixtures" / "logistics.json")
+    service = HiCloseService(agent, shop, payments, channels, dispatch=dispatch)
     webhook_id = os.environ.get("PAYPAL_WEBHOOK_ID", "")
     webhooks = PayPalWebhooks(client, payments, webhook_id) if webhook_id else None
     return create_app(service, web, webhooks, whatsapp=whatsapp)

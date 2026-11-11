@@ -17,6 +17,7 @@ talked into a bad price or a fake payment. Payments by PayPal.
 
 - Try it: https://hiclose.onrender.com
 - Owner dashboard: https://hiclose.onrender.com/owner
+- Dispatch board: https://hiclose.onrender.com/dispatch
 - Code: https://github.com/vedantdevkar04/paypalhacks (MIT)
 - Video: `<YouTube link>`
 
@@ -76,6 +77,8 @@ It works in a web chat that anyone can try and on WhatsApp.
 - **Channels:** a web chat, and WhatsApp through Twilio, with every webhook's HMAC signature
   checked.
 - **An owner dashboard** built on **AG Grid**, deployed on **Render**.
+- **A dispatch board** built on **Bryntum Scheduler**: warehouses, vans, driver shifts and shipments for the day.
+  Drag a shipment onto a driver and HiClose checks the move; paid PayPal orders show up as shipments to the PayPal address's city.
 
 ## Challenges we ran into
 
@@ -132,5 +135,5 @@ It works in a web chat that anyone can try and on WhatsApp.
 - [ ] README placeholders filled: WhatsApp join phrase, sandbox buyer login, video link
 - [ ] Repo is public and MIT shows in the GitHub About box
 - [ ] Wake the live site just before submitting (open https://hiclose.onrender.com)
-- [ ] Opt in to sponsor prizes: AG Grid, Render
+- [ ] Opt in to sponsor prizes: AG Grid, Bryntum, Render
 - [ ] Submitted before 12:00 PT on 12 Nov (aim for 09:00 PT)

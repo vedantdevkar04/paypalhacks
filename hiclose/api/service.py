@@ -12,6 +12,7 @@ from typing import Protocol
 from hiclose.agent import SalesAgent, Shop
 from hiclose.agent.money import fmt
 from hiclose.channels.base import ChannelAdapter, IncomingMessage, OutgoingMessage
+from hiclose.logistics import DispatchBoard
 from hiclose.paypal.orders import OrderRecord
 
 log = logging.getLogger("hiclose")
@@ -65,8 +66,10 @@ def masked(customer_id: str) -> str:
 
 
 class HiCloseService:
-    def __init__(self, agent: SalesAgent, shop: Shop, payments: Payments, channels: dict[str, ChannelAdapter], workers: int | None = None):
+    def __init__(self, agent: SalesAgent, shop: Shop, payments: Payments, channels: dict[str, ChannelAdapter],
+                 workers: int | None = None, dispatch: DispatchBoard | None = None):
         self.agent = agent
+        self.dispatch = dispatch
         self.shop = shop
         self.payments = payments
         self.channels = channels
@@ -138,6 +141,10 @@ class HiCloseService:
         self.stats.paid += 1
         self.stats.revenue_cents[quote.currency] = self.stats.revenue_cents.get(quote.currency, 0) + quote.price_cents
         self.stats.log("paid", order=record.order_id, cents=quote.price_cents, currency=quote.currency)
+        if self.dispatch is not None:
+            shipment = self.dispatch.add_order(record.order_id, quote.product_id, record.ship_to)
+            if shipment:
+                self.stats.log("shipment", order=record.order_id, shipment=shipment.shipment_id)
         owner = self._order_owner.get(record.order_id)
         if owner is None:
             return

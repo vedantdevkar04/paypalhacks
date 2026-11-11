@@ -94,7 +94,8 @@ hiclose/
   paypal/     PayPal REST client: orders, capture, refunds, tracking, webhooks
   agent/      Gemini calls, the tool definitions, inbox sorting
   channels/   adapters: web chat, WhatsApp (Twilio sandbox), Instagram
-  api/        FastAPI app: webhooks in, owner app out
+  api/        FastAPI app: webhooks in, owner app out (/owner on AG Grid, /dispatch on Bryntum)
+  logistics/  the dispatch rules: warehouses, vehicles, driver shifts, shipment assignment (plain code)
 tests/
 ```
 
@@ -146,7 +147,7 @@ lane is Vedant's, and the board's Adi stories are reassigned.
 ## Cut order
 
 There's one of us and four days. If time runs short, cut from the top of this list first:
-1. Bryntum Scheduler
+1. Bryntum Scheduler (built as the dispatch board, not the live deals timeline)
 2. Voice notes
 3. Instagram (keep WhatsApp through Twilio, plus web chat)
 4. The owner's voice command (dropped already: the agent runs on webhooks, with an on/off switch)
@@ -161,7 +162,7 @@ These are our targets. A project can win one Grand Prize or one Honorable Mentio
 prize.
 - **Main:** Best Use of Agentic Commerce, and Best Use of PayPal + AI
 - **Sponsor:** AG Grid (dashboard), Render (hosting plus Workflows for the DM queue), APIMatic
-  (Context Plugin while coding), Bryntum (live deals Scheduler)
+  (Context Plugin while coding), Bryntum (dispatch board at /dispatch: built)
 
 ## Setup
 

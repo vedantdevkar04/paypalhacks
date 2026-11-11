@@ -10,6 +10,7 @@ no real money moves.
 |---|---|
 | 🛍️ Shop chat (no account needed) | **https://hiclose.onrender.com** |
 | 📊 Owner dashboard | **https://hiclose.onrender.com/owner** |
+| 🚚 Dispatch board | **https://hiclose.onrender.com/dispatch** |
 | 💬 WhatsApp | Send `<JOIN PHRASE>` to **+1 415 523 8886**, then say "hi" |
 | 🎬 Demo video | `<YouTube link>` |
 
@@ -98,11 +99,15 @@ fake money.
 ### AI
 
 **Gemini 3.6 Flash** with function calling, falling back to **Gemini 3.5 Flash-Lite** when busy.
-Five tools: `list_products`, `get_product`, `propose_price`, `checkout`, `hand_to_owner`.
+Six tools: `list_products`, `get_product`, `show_photo`, `propose_price`, `checkout`, `hand_to_owner`.
 
 ### Sponsor tools
 
 - **AG Grid** (Community): the owner dashboard's conversation and order tables
+- **Bryntum** (Scheduler, trial): the dispatch board at `/dispatch`. Drivers and vans are rows with their
+  shifts, shipments are bars you drag onto them, and a grid shows each warehouse's inventory against
+  capacity and its dock slots. Every drop is checked by the server (shift, delivery window, vehicle
+  capacity and home warehouse, double booking, docks), and paid PayPal orders appear as new shipments.
 - **Render**: hosting, deployed from `render.yaml`
 
 ---

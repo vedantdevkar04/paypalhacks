@@ -1,0 +1,160 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>HiClose dispatch</title>
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@bryntum/scheduler-trial@7.3.7/scheduler.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@bryntum/scheduler-trial@7.3.7/svalbard-light.css">
+<style>
+  :root { --bg: #f4f2ee; --panel: #ffffff; --ink: #1d1b19; --muted: #6f6a63; --line: #e6e1d9; --brand: #2f3a8f; }
+  * { box-sizing: border-box; }
+  html, body { height: 100%; }
+  body { margin: 0; background: var(--bg); color: var(--ink); font: 14px/1.45 system-ui, -apple-system, "Segoe UI", sans-serif;
+         display: flex; flex-direction: column; }
+  header { display: flex; align-items: center; gap: 12px; padding: 12px 16px; flex-wrap: wrap; }
+  header h1 { font-size: 18px; margin: 0; }
+  header p { margin: 0; color: var(--muted); font-size: 13px; flex: 1; min-width: 220px; }
+  header a { color: inherit; font-size: 13px; }
+  button.primary { background: var(--brand); color: #fff; border: 0; border-radius: 999px; padding: 8px 16px; font: inherit; font-weight: 600; cursor: pointer; }
+  button.primary:disabled { opacity: .5; cursor: default; }
+  .legend { display: flex; gap: 12px; font-size: 12.5px; color: var(--muted); padding: 0 16px 8px; flex-wrap: wrap; }
+  .legend i { display: inline-block; width: 12px; height: 12px; border-radius: 3px; vertical-align: -2px; margin-right: 4px; }
+  #warehouses { height: 150px; margin: 0 16px; border: 1px solid var(--line); border-radius: 12px; overflow: hidden; flex: none; }
+  #board { flex: 1; min-height: 420px; margin: 12px 16px 16px; border: 1px solid var(--line); border-radius: 12px; overflow: hidden; }
+  .unassigned-row { background: #fbf7ec !important; }
+  .b-sch-event .meta { font-size: 11px; opacity: .85; }
+  .b-sch-event.from-order { box-shadow: inset 0 0 0 2px #ffc439; }
+</style>
+</head>
+<body>
+<header>
+  <h1>Dispatch</h1>
+  <p id="sub">Warehouses, vans and drivers for today. Drag a shipment onto a driver; HiClose checks every move.</p>
+  <button class="primary" id="auto" type="button">Auto-assign the rest</button>
+  <a href="/owner">Owner dashboard</a>
+</header>
+<div class="legend">
+  <span><i style="background:#3b5bdb"></i>Brooklyn Hub</span>
+  <span><i style="background:#0c8599"></i>Newark DC</span>
+  <span><i style="background:#fff;box-shadow:inset 0 0 0 2px #ffc439"></i>From a paid PayPal order</span>
+  <span><i style="background:#dee2e6"></i>Driver off shift</span>
+</div>
+<div id="warehouses"></div>
+<div id="board"></div>
+
+<script src="https://cdn.jsdelivr.net/npm/@bryntum/scheduler-trial@7.3.7/scheduler.umd.js"></script>
+<script>
+const { Scheduler, Grid, Toast, DateHelper, StringHelper } = bryntum.scheduler;
+const COLORS = { "wh-bk": "#3b5bdb", "wh-nj": "#0c8599" };
+const fmt = (d) => DateHelper.format(d, "YYYY-MM-DDTHH:mm");
+const hm = (iso) => iso.slice(11, 16);
+
+function shapeEvents(events) {
+  return events.map((e) => ({ ...e, eventColor: COLORS[e.warehouseId] || "#868e96", cls: e.fromOrder ? "from-order" : "" }));
+}
+
+const warehouses = new Grid({
+  appendTo: "warehouses",
+  readOnly: true,
+  columns: [
+    { text: "Warehouse", field: "name", flex: 1.2,
+      renderer: ({ record }) => StringHelper.xss`<b>${record.name}</b> <span style="color:#6f6a63">${record.city}</span>` },
+    { text: "Inventory", field: "fill", type: "percent", flex: 1.4 },
+    { text: "Units / capacity", field: "onHand", flex: 0.9, renderer: ({ record }) => `${record.onHand} / ${record.capacity}` },
+    { text: "Dock slots today", field: "dockFill", type: "percent", flex: 1.2 },
+    { text: "Docks", field: "docksUsed", flex: 0.6, renderer: ({ record }) => `${record.docksUsed} / ${record.docks}` },
+    { text: "Outbound parcels", field: "outboundParcels", flex: 0.8, align: "right" },
+    { text: "Waiting", field: "waiting", flex: 0.6, align: "right" },
+  ],
+  data: [],
+});
+
+let scheduler;
+
+function load(data, first = false) {
+  warehouses.store.data = data.warehouses;
+  if (first) {
+    scheduler = new Scheduler({
+      appendTo: "board",
+      startDate: new Date(data.start),
+      endDate: new Date(data.end),
+      viewPreset: "hourAndDay",
+      rowHeight: 56,
+      barMargin: 6,
+      eventStyle: "rounded",
+      columns: [
+        { text: "Driver", field: "name", width: 190,
+          renderer: ({ record }) => StringHelper.xss`<div><b>${record.name}</b><div style="font-size:12px;color:#6f6a63">${record.vehicle}</div></div>` },
+        { text: "Capacity", field: "capacity", width: 140 },
+        { text: "Shift", field: "shift", width: 120 },
+      ],
+      resources: data.resources,
+      events: shapeEvents(data.events),
+      resourceTimeRanges: data.offShift,
+      features: {
+        resourceTimeRanges: true,
+        timeRanges: { showCurrentTimeLine: true },
+        eventEdit: false,
+        eventResize: false,
+        eventDragCreate: false,
+        eventMenu: false,
+        scheduleMenu: false,
+        eventTooltip: {
+          template: ({ eventRecord: e }) => StringHelper.xss`
+            <b>${e.name}</b><br>
+            ${e.parcels} parcels · ${e.kg} kg from ${e.warehouse}<br>
+            Packed by ${hm(e.readyAt)} · deliver by ${hm(e.dueBy)}` + (e.fromOrder ? "<br>From a paid PayPal order" : ""),
+        },
+      },
+      eventRenderer({ eventRecord: e }) {
+        return StringHelper.xss`<div><div>${e.name}</div><div class="meta">${e.parcels} parcels · ${e.kg} kg</div></div>`;
+      },
+      listeners: {
+        // The page only proposes the move; the server's rules decide.
+        beforeEventDropFinalize({ context }) {
+          context.async = true;
+          const record = context.eventRecords[0];
+          const resource = context.newResource || record.resource;
+          fetch("/api/dispatch/assign", {
+            method: "POST", headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ shipment_id: record.id, driver_id: resource.id, start: fmt(context.startDate) }),
+          }).then((r) => r.json()).then((res) => {
+            context.finalize(Boolean(res.ok));
+            if (!res.ok) Toast.show({ html: StringHelper.encodeHtml(res.reason || res.detail || "That move isn't allowed."), timeout: 4500 });
+            if (res.board) setTimeout(() => load(res.board), 0);
+          }).catch(() => { context.finalize(false); Toast.show("Couldn't reach the server. Try again."); });
+        },
+      },
+    });
+    scheduler.resourceStore.getById("unassigned")?.set("cls", "unassigned-row");
+  } else {
+    scheduler.eventStore.data = shapeEvents(data.events);
+  }
+  const waiting = data.events.filter((e) => !e.assigned).length;
+  document.getElementById("auto").disabled = waiting === 0;
+  document.getElementById("auto").textContent = waiting ? `Auto-assign ${waiting} waiting` : "All shipments assigned";
+}
+
+document.getElementById("auto").onclick = async () => {
+  const res = await (await fetch("/api/dispatch/auto", { method: "POST" })).json();
+  load(res.board);
+  const left = res.unassigned.length;
+  Toast.show(left ? `Assigned ${res.assigned.length}. ${left} can't fit: ${res.unassigned.map((u) => u.shipment_id + ": " + u.reason).join(" ")}`
+                  : `Assigned ${res.assigned.length} shipment${res.assigned.length === 1 ? "" : "s"}.`);
+};
+
+fetch("/api/dispatch").then((r) => r.json()).then((data) => {
+  document.getElementById("sub").textContent =
+    `${DateHelper.format(new Date(data.start), "dddd D MMMM")}. Drag a shipment onto a driver; HiClose checks shifts, windows, capacity and docks.`;
+  load(data, true);
+});
+// New paid orders arrive as shipments; refresh every 20 seconds unless someone is dragging.
+setInterval(async () => {
+  if (!scheduler || scheduler.features.eventDrag.isDragging) return;
+  const data = await (await fetch("/api/dispatch")).json();
+  load(data);
+}, 20000);
+</script>
+</body>
+</html>

@@ -1,0 +1,41 @@
+{
+  "note": "Demo warehouses, fleet and drivers for the dispatch board. Times are shop-local, on the board's day.",
+  "warehouses": [
+    {"warehouse_id": "wh-bk", "name": "Brooklyn Hub", "city": "Brooklyn, NY", "capacity_units": 40, "dock_slots": 8,
+     "product_ids": ["jacket-denim", "shirt-linen"]},
+    {"warehouse_id": "wh-nj", "name": "Newark DC", "city": "Newark, NJ", "capacity_units": 30, "dock_slots": 4,
+     "product_ids": ["tote-canvas", "scarf-silk"]}
+  ],
+  "parcel_grams": {"jacket-denim": 900, "shirt-linen": 350, "tote-canvas": 400, "scarf-silk": 150},
+  "vehicles": [
+    {"vehicle_id": "van-1", "name": "Van 1 (EV)", "warehouse_id": "wh-bk", "capacity_parcels": 30, "capacity_kg": 400},
+    {"vehicle_id": "van-2", "name": "Van 2", "warehouse_id": "wh-bk", "capacity_parcels": 40, "capacity_kg": 600},
+    {"vehicle_id": "bike-1", "name": "Cargo bike", "warehouse_id": "wh-bk", "capacity_parcels": 8, "capacity_kg": 40},
+    {"vehicle_id": "van-3", "name": "Van 3", "warehouse_id": "wh-nj", "capacity_parcels": 35, "capacity_kg": 500}
+  ],
+  "drivers": [
+    {"driver_id": "d-priya", "name": "Priya", "vehicle_id": "van-1", "shifts": [["07:00", "15:00"]]},
+    {"driver_id": "d-ana", "name": "Ana", "vehicle_id": "van-2", "shifts": [["06:00", "10:00"]]},
+    {"driver_id": "d-marcus", "name": "Marcus", "vehicle_id": "van-2", "shifts": [["10:00", "18:00"]]},
+    {"driver_id": "d-lena", "name": "Lena", "vehicle_id": "bike-1", "shifts": [["08:00", "12:00"], ["13:00", "17:00"]]},
+    {"driver_id": "d-sam", "name": "Sam", "vehicle_id": "van-3", "shifts": [["12:00", "20:00"]]}
+  ],
+  "shipments": [
+    {"shipment_id": "S-101", "warehouse_id": "wh-bk", "destination": "Manhattan (Midtown)", "parcels": 18, "kg": 160,
+     "ready": "07:00", "due": "12:00", "minutes": 150, "driver_id": "d-priya", "start": "07:30"},
+    {"shipment_id": "S-102", "warehouse_id": "wh-bk", "destination": "Queens (Astoria)", "parcels": 26, "kg": 310,
+     "ready": "06:00", "due": "10:00", "minutes": 180, "driver_id": "d-ana", "start": "06:30"},
+    {"shipment_id": "S-103", "warehouse_id": "wh-bk", "destination": "Brooklyn (Park Slope)", "parcels": 6, "kg": 22,
+     "ready": "08:00", "due": "11:30", "minutes": 90, "driver_id": "d-lena", "start": "08:30"},
+    {"shipment_id": "S-104", "warehouse_id": "wh-nj", "destination": "Jersey City", "parcels": 20, "kg": 140,
+     "ready": "12:00", "due": "17:00", "minutes": 150, "driver_id": "d-sam", "start": "12:30"},
+    {"shipment_id": "S-105", "warehouse_id": "wh-bk", "destination": "Manhattan (SoHo)", "parcels": 34, "kg": 420,
+     "ready": "11:00", "due": "17:00", "minutes": 150},
+    {"shipment_id": "S-106", "warehouse_id": "wh-bk", "destination": "Brooklyn (Williamsburg)", "parcels": 5, "kg": 18,
+     "ready": "13:00", "due": "16:30", "minutes": 75},
+    {"shipment_id": "S-107", "warehouse_id": "wh-nj", "destination": "Hoboken", "parcels": 12, "kg": 70,
+     "ready": "14:00", "due": "19:30", "minutes": 120},
+    {"shipment_id": "S-108", "warehouse_id": "wh-bk", "destination": "Bronx (Mott Haven)", "parcels": 22, "kg": 260,
+     "ready": "09:00", "due": "14:00", "minutes": 165}
+  ]
+}
