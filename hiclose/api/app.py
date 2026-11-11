@@ -17,13 +17,13 @@ from fastapi.responses import FileResponse, HTMLResponse, Response
 from hiclose.agent.money import fmt
 from hiclose.api.ratelimit import RateLimiter
 from hiclose.api.service import HiCloseService
-from hiclose.channels import WebChannel
+from hiclose.channels import OutgoingMessage, WebChannel
 from hiclose.channels.whatsapp import WhatsAppChannel
 from hiclose.paypal import PayPalError, PayPalWebhooks
 
 ROOT = Path(__file__).resolve().parents[2]
 STATIC = Path(__file__).parent / "static"
-EMPTY_TWIML = '<?xml version="1.0" encoding="UTF-8"?><Response></Response>'
+HOLD_TEXT = "One moment, I'm checking that for you. Send any message if my answer doesn't show up."
 log = logging.getLogger("hiclose")
 
 
@@ -66,11 +66,26 @@ def create_app(
     limiter = limiter or RateLimiter(int(os.environ.get("CHAT_LIMIT_PER_MINUTE", "20")), 60)
     app.state.tasks = set()
 
-    async def handle_in_background(message):
+    # Twilio waits 15 s for the webhook response; answer a little before that.
+    reply_seconds = float(os.environ.get("WHATSAPP_REPLY_SECONDS", "13"))
+    # Replies that missed the webhook and that the API refused, delivered on the customer's next message.
+    app.state.whatsapp_pending = {}
+
+    async def send_late(task, message):
+        """The agent missed Twilio's webhook deadline. Try the Messages API; if Twilio refuses
+        free-form sends (21654), keep the reply for the customer's next webhook."""
         try:
-            await service.handle(message)
+            reply = await task
         except Exception:
             log.exception("failed to handle %s message %s", message.channel, message.message_id)
+            return
+        if reply is None or whatsapp is None:
+            return
+        try:
+            await whatsapp.send(reply)
+        except Exception:
+            log.warning("late whatsapp reply for %s queued for the customer's next message", message.message_id)
+            app.state.whatsapp_pending.setdefault(message.customer_id, []).append(reply)
 
     @app.get("/")
     def chat_page():
@@ -156,13 +171,29 @@ def create_app(
         params = whatsapp.form(await request.body())
         if not whatsapp.verify(_public_url(request), params, request.headers.get("X-Twilio-Signature", "")):
             raise HTTPException(403, "signature not verified")
+        # Reply inside the webhook response (TwiML). Twilio refuses free-form API sends from
+        # this sender (error 21654, ContentSid required), but accepts a TwiML reply.
+        replies = []
         for message in whatsapp.parse(params):
             if not limiter.allow(message.customer_id):
                 continue
-            task = asyncio.create_task(handle_in_background(message))
-            app.state.tasks.add(task)
-            task.add_done_callback(app.state.tasks.discard)
-        return Response(EMPTY_TWIML, media_type="application/xml")
+            replies.extend(app.state.whatsapp_pending.pop(message.customer_id, []))
+            task = asyncio.create_task(service.handle(message, deliver=False))
+            try:
+                reply = await asyncio.wait_for(asyncio.shield(task), reply_seconds)
+            except asyncio.TimeoutError:
+                log.warning("whatsapp reply for %s missed the webhook deadline", message.message_id)
+                late = asyncio.create_task(send_late(task, message))
+                app.state.tasks.add(late)
+                late.add_done_callback(app.state.tasks.discard)
+                replies.append(OutgoingMessage("whatsapp", message.customer_id, HOLD_TEXT))
+                continue
+            except Exception:
+                log.exception("failed to handle %s message %s", message.channel, message.message_id)
+                continue
+            if reply is not None:
+                replies.append(reply)
+        return Response(whatsapp.twiml(replies), media_type="application/xml")
 
     @app.get("/api/stats")
     def stats():

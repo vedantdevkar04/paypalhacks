@@ -1,5 +1,6 @@
 """WhatsApp through Twilio. Every incoming webhook is checked against Twilio's signature, so nobody
-can post fake customer messages to us; replies go out through Twilio's Messages API."""
+can post fake customer messages to us. Replies go back as TwiML in the webhook response; Twilio
+refuses free-form Messages API sends from our sender (error 21654), so the API is only a fallback."""
 
 import base64
 import hashlib
@@ -7,6 +8,7 @@ import hmac
 import logging
 import os
 from urllib.parse import parse_qsl
+from xml.sax.saxutils import escape as xml_escape
 
 import httpx
 
@@ -65,14 +67,30 @@ class WhatsAppChannel:
             media_urls=media,
         )]
 
-    async def send(self, message: OutgoingMessage) -> None:
+    @staticmethod
+    def render(message: OutgoingMessage) -> str:
         body = message.text
         if message.checkout_url:
             body += f"\n\nPay securely with PayPal: {message.checkout_url}"
+        return body[:1600]
+
+    @classmethod
+    def twiml(cls, messages: "list[OutgoingMessage] | OutgoingMessage | None") -> str:
+        """Replies as TwiML, returned straight to Twilio's webhook call (no API send).
+        Each reply becomes its own <Message>, so the customer gets them as separate bubbles."""
+        if messages is None:
+            messages = []
+        elif isinstance(messages, OutgoingMessage):
+            messages = [messages]
+        body = "".join(f"<Message>{xml_escape(cls.render(m))}</Message>" for m in messages)
+        return f'<?xml version="1.0" encoding="UTF-8"?><Response>{body}</Response>'
+
+    async def send(self, message: OutgoingMessage) -> None:
+        body = self.render(message)
         async with httpx.AsyncClient(transport=self._transport, timeout=20) as client:
             response = await client.post(
                 f"https://api.twilio.com/2010-04-01/Accounts/{self._sid}/Messages.json",
-                data={"From": self._from, "To": message.customer_id, "Body": body[:1600]},
+                data={"From": self._from, "To": message.customer_id, "Body": body},
                 auth=(self._sid, self._token),
             )
             if response.is_error:

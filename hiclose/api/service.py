@@ -85,7 +85,9 @@ class HiCloseService:
         if STAGE_ORDER.index(stage) > STAGE_ORDER.index(chat.stage if chat.stage in STAGE_ORDER else "chatting"):
             chat.stage = stage
 
-    async def handle(self, message: IncomingMessage) -> OutgoingMessage | None:
+    async def handle(self, message: IncomingMessage, deliver: bool = True) -> OutgoingMessage | None:
+        """Run one customer message. With deliver=False the reply is returned, not sent
+        (the WhatsApp webhook hands it straight back to Twilio as TwiML)."""
         key = f"{message.channel}:{message.message_id}"
         if key in self._seen:
             return None
@@ -96,7 +98,7 @@ class HiCloseService:
         chat.messages += 1
         chat.last_customer = message.text[:200]
         if not self.enabled:
-            return await self._send(OutgoingMessage(message.channel, message.customer_id, "Thanks for your message! We'll reply soon."))
+            return await self._send(OutgoingMessage(message.channel, message.customer_id, "Thanks for your message! We'll reply soon."), deliver)
         async with self._slots, self._locks[message.customer_id]:
             reply = await asyncio.to_thread(self.agent.handle, message.customer_id, message.text, message.post_id)
         if reply is None:
@@ -117,7 +119,7 @@ class HiCloseService:
             self._advance(chat, "checkout")
             self.stats.checkouts += 1
             self.stats.log("checkout", customer=chat.customer, order=reply.order_id)
-        return await self._send(OutgoingMessage(message.channel, message.customer_id, reply.text, reply.checkout_url))
+        return await self._send(OutgoingMessage(message.channel, message.customer_id, reply.text, reply.checkout_url), deliver)
 
     async def payment_returned(self, order_id: str) -> OrderRecord:
         record = await asyncio.to_thread(self.payments.confirm, order_id)
@@ -201,8 +203,8 @@ class HiCloseService:
         ]
         return {"funnel": [{"label": label, "count": n} for label, n in funnel], "chats": rows, "orders": orders}
 
-    async def _send(self, message: OutgoingMessage) -> OutgoingMessage:
+    async def _send(self, message: OutgoingMessage, deliver: bool = True) -> OutgoingMessage:
         channel = self.channels.get(message.channel)
-        if channel is not None:
+        if deliver and channel is not None:
             await channel.send(message)
         return message
