@@ -25,6 +25,8 @@
   .unassigned-row { background: #fbf7ec !important; }
   .b-sch-event .meta { font-size: 11px; opacity: .85; }
   .b-sch-event.from-order { box-shadow: inset 0 0 0 2px #ffc439; }
+  .b-sch-range.now-line { border-left: 2px solid #e03131; background: none; }
+  .b-sch-range.now-line label, .b-sch-timerange.now-line label { color: #e03131; }
 </style>
 </head>
 <body>
@@ -92,9 +94,11 @@ function load(data, first = false) {
       resources: data.resources,
       events: shapeEvents(data.events),
       resourceTimeRanges: data.offShift,
+      // "Now" is the shop's time (e.g. New York), not the viewer's clock, so it lines up with the shifts.
+      timeRanges: [{ id: "now", name: `Now · ${data.timezoneLabel}`, startDate: new Date(data.now), cls: "now-line" }],
       features: {
         resourceTimeRanges: true,
-        timeRanges: { showCurrentTimeLine: true },
+        timeRanges: { showCurrentTimeLine: false },
         eventEdit: false,
         eventResize: false,
         eventDragCreate: false,
@@ -128,8 +132,11 @@ function load(data, first = false) {
       },
     });
     scheduler.resourceStore.getById("unassigned")?.set("cls", "unassigned-row");
+    const now = new Date(data.now);
+    if (now > scheduler.startDate && now < scheduler.endDate) scheduler.scrollToDate(now, { block: "center" });
   } else {
     scheduler.eventStore.data = shapeEvents(data.events);
+    scheduler.timeRangeStore.getById("now")?.set("startDate", new Date(data.now));
   }
   const waiting = data.events.filter((e) => !e.assigned).length;
   document.getElementById("auto").disabled = waiting === 0;
@@ -146,14 +153,19 @@ document.getElementById("auto").onclick = async () => {
 
 fetch("/api/dispatch").then((r) => r.json()).then((data) => {
   document.getElementById("sub").textContent =
-    `${DateHelper.format(new Date(data.start), "dddd D MMMM")}. Drag a shipment onto a driver; HiClose checks shifts, windows, capacity and docks.`;
+    `${DateHelper.format(new Date(data.start), "dddd D MMMM")}, ${data.timezone.replace("_", " ")} time. ` +
+    "Drag a shipment onto a driver; HiClose checks shifts, windows, capacity and docks.";
   load(data, true);
 });
 // New paid orders arrive as shipments; refresh every 20 seconds unless someone is dragging.
 setInterval(async () => {
   if (!scheduler || scheduler.features.eventDrag.isDragging) return;
-  const data = await (await fetch("/api/dispatch")).json();
-  load(data);
+  try {
+    const res = await fetch("/api/dispatch");
+    if (res.ok) load(await res.json());
+  } catch {
+    // server waking up or briefly offline; the next refresh tries again
+  }
 }, 20000);
 </script>
 </body>

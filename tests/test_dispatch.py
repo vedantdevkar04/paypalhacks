@@ -144,3 +144,29 @@ def test_paypal_confirmation_puts_the_order_on_the_board():
     asyncio.run(service.notify_payment(record))
     [shipment] = [s for s in board.shipments.values() if s.order_id == "ORDER-9"]
     assert shipment.warehouse_id == "wh-bk" and shipment.destination == "Denver, CO"
+
+
+def test_board_runs_on_the_shops_timezone_not_the_servers_clock(monkeypatch):
+    from zoneinfo import ZoneInfo
+    import hiclose.logistics.board as board_module
+
+    class Clock(datetime):
+        @classmethod
+        def now(cls, tz=None):
+            # 01:30 UTC on 12 Nov is still the evening of 11 Nov in New York.
+            moment = datetime(2026, 11, 12, 1, 30, tzinfo=ZoneInfo("UTC"))
+            return moment.astimezone(tz) if tz else moment.replace(tzinfo=None)
+
+    monkeypatch.setattr(board_module, "datetime", Clock)
+    monkeypatch.setenv("SHOP_TIMEZONE", "America/New_York")
+    board = DispatchBoard.from_json(FIXTURE)
+    assert board.day == date(2026, 11, 11)
+    view = board.view()
+    assert view["now"] == "2026-11-11T20:30" and view["timezone"] == "America/New_York" and view["timezoneLabel"] == "EST"
+    shipment = board.add_order("ORDER-TZ", "tote-canvas", None)
+    assert shipment.ready_at == datetime(2026, 11, 11, 21, 0)
+
+
+def test_timezone_can_be_changed(monkeypatch):
+    monkeypatch.setenv("SHOP_TIMEZONE", "Asia/Kolkata")
+    assert DispatchBoard.from_json(FIXTURE, day=DAY).view()["timezone"] == "Asia/Kolkata"

@@ -21,6 +21,8 @@ services:
         value: gemini-3.1-flash-image,gemini-2.5-flash-image
       - key: TRYON_ENABLED
         value: "0"
+      - key: SHOP_TIMEZONE
+        value: America/New_York
       - key: SHOP_BRAND
         value: Indigo Lane
       - key: WORKER_COUNT

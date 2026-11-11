@@ -4,17 +4,27 @@ Like the pricing rules, this is plain code: the page (Bryntum) only proposes a m
 `assign()` decides. A move is refused, with a reason a person can read, when it breaks any of:
 the driver's shift, the shipment's delivery window, the vehicle's home warehouse, the vehicle's
 parcel or weight capacity, a double booking of the driver or the vehicle, or the warehouse's dock
-slots for the day. Weights are integer grams; times are shop-local on the board's day."""
+slots for the day. Weights are integer grams; times are shop-local on the board's day.
+
+"Shop-local" is SHOP_TIMEZONE (default America/New_York, where the demo warehouses are), not the
+server's clock: Render runs on UTC, which would put the board on tomorrow every US evening."""
 
 import itertools
 import json
+import os
 import threading
 from dataclasses import dataclass, field
 from datetime import date, datetime, time, timedelta
 from pathlib import Path
+from zoneinfo import ZoneInfo
 
 SLOT = timedelta(minutes=15)
 DAY_START, DAY_END = time(6, 0), time(22, 0)
+DEFAULT_TIMEZONE = "America/New_York"
+
+
+def shop_timezone() -> ZoneInfo:
+    return ZoneInfo(os.environ.get("SHOP_TIMEZONE") or DEFAULT_TIMEZONE)
 
 
 class DispatchError(Exception):
@@ -91,15 +101,17 @@ class DispatchBoard:
     drivers: dict[str, Driver]
     shipments: dict[str, Shipment]
     parcel_grams: dict[str, int]
+    tz: ZoneInfo = field(default_factory=shop_timezone)
     _lock: threading.Lock = field(default_factory=threading.Lock, repr=False)
     _ids: itertools.count = field(default_factory=lambda: itertools.count(1), repr=False)
 
     # ---- loading -------------------------------------------------------------------------------
 
     @classmethod
-    def from_json(cls, path: str | Path, day: date | None = None) -> "DispatchBoard":
+    def from_json(cls, path: str | Path, day: date | None = None, tz: ZoneInfo | None = None) -> "DispatchBoard":
         data = json.loads(Path(path).read_text(encoding="utf-8"))
-        day = day or date.today()
+        tz = tz or shop_timezone()
+        day = day or datetime.now(tz).date()
 
         def at(hhmm: str) -> datetime:
             return datetime.combine(day, time.fromisoformat(hhmm))
@@ -110,7 +122,7 @@ class DispatchBoard:
                                              v["capacity_kg"] * 1000) for v in data["vehicles"]}
         drivers = {d["driver_id"]: Driver(d["driver_id"], d["name"], d["vehicle_id"],
                                           tuple((at(s), at(e)) for s, e in d["shifts"])) for d in data["drivers"]}
-        board = cls(day, warehouses, vehicles, drivers, {}, dict(data.get("parcel_grams", {})))
+        board = cls(day, warehouses, vehicles, drivers, {}, dict(data.get("parcel_grams", {})), tz)
         for s in data["shipments"]:
             shipment = Shipment(s["shipment_id"], s["warehouse_id"], s["destination"], s["parcels"], s["kg"] * 1000,
                                 at(s["ready"]), at(s["due"]), s["minutes"])
@@ -126,6 +138,10 @@ class DispatchBoard:
             if driver.vehicle_id not in vehicles:
                 raise DispatchError(f"{driver.driver_id}: unknown vehicle {driver.vehicle_id}")
         return board
+
+    def local_now(self) -> datetime:
+        """The shop's wall-clock time, without tzinfo, to compare with the board's times."""
+        return datetime.now(self.tz).replace(tzinfo=None, second=0, microsecond=0)
 
     # ---- the rules -----------------------------------------------------------------------------
 
@@ -231,7 +247,7 @@ class DispatchBoard:
         with self._lock:
             if any(s.order_id == order_id for s in self.shipments.values()):
                 return None
-            now = (now or datetime.now()).replace(second=0, microsecond=0, tzinfo=None)
+            now = (now or self.local_now()).replace(second=0, microsecond=0, tzinfo=None)
             day_open = datetime.combine(self.day, DAY_START)
             ready = max(day_open, now + (SLOT - timedelta(minutes=now.minute % 15)) % SLOT + SLOT * 2)
             address = (ship_to or {}).get("address", {})
@@ -296,5 +312,8 @@ class DispatchBoard:
                 "outboundParcels": sum(s.parcels for s in outbound),
                 "waiting": sum(1 for s in outbound if not s.driver_id),
             })
+        now = self.local_now()
         return {"day": self.day.isoformat(), "start": iso(day_open), "end": iso(day_close),
+                "now": iso(now), "timezone": self.tz.key,
+                "timezoneLabel": now.replace(tzinfo=self.tz).strftime("%Z"),
                 "resources": resources, "events": events, "offShift": off, "warehouses": warehouses}
