@@ -4,6 +4,7 @@ can post fake customer messages to us; replies go out through Twilio's Messages 
 import base64
 import hashlib
 import hmac
+import logging
 import os
 from urllib.parse import parse_qsl
 
@@ -74,4 +75,9 @@ class WhatsAppChannel:
                 data={"From": self._from, "To": message.customer_id, "Body": body[:1600]},
                 auth=(self._sid, self._token),
             )
+            if response.is_error:
+                logging.getLogger("hiclose").error(
+                    "twilio send failed: status=%s from=%s to=%s body=%s",
+                    response.status_code, self._from, message.customer_id, response.text[:500],
+                )
             response.raise_for_status()
