@@ -215,8 +215,9 @@ class HiCloseService:
         return {"funnel": [{"label": label, "count": n} for label, n in funnel], "chats": rows, "orders": orders}
 
     async def _fetch_photo(self, message: IncomingMessage):
-        """The first photo attached to the message, if the channel can hand it over. Only used for try-ons."""
-        if not message.media_urls or self.shop.tryon is None:
+        """The first photo attached to the message, if the channel can hand it over. Only used for try-ons
+        and photo matching, and only fetched when one of them is switched on."""
+        if not message.media_urls or (self.shop.tryon is None and self.shop.photo_match is None):
             return None
         fetch = getattr(self.channels.get(message.channel), "fetch_photo", None)
         if fetch is None:

@@ -27,7 +27,7 @@ class SalesAgent:
         self._shop = shop
         self._store = store
         self._max_steps = max_steps
-        self._system = system_prompt(shop.brand, tryon=shop.tryon is not None)
+        self._system = system_prompt(shop.brand, tryon=shop.tryon is not None, photo_match=shop.photo_match is not None)
 
     def _context(self, post_id: str | None, handed_off: str | None, sent_photo: bool = False) -> str | None:
         notes = []
@@ -37,8 +37,12 @@ class SalesAgent:
         if handed_off:
             notes.append(f"Earlier this chat was passed to the owner for: {handed_off}. Keep helping with shopping questions.")
         if sent_photo:
-            notes.append("The customer just sent a photo. If it's of themselves and they want to see an item on them, "
-                         "call try_on for it; if you don't know which item, ask. If it's not of them, ask what they'd like.")
+            ways = []
+            if self._shop.photo_match is not None:
+                ways.append("if it shows a product (a screenshot or something they saw), call identify_photo")
+            if self._shop.tryon is not None:
+                ways.append("if it's of themselves and they want to see an item on them, call try_on for that item")
+            notes.append("The customer just sent a photo: " + "; ".join(ways) + ". If you can't tell which, ask.")
         return " ".join(notes) or None
 
     def handle(self, customer_id: str, text: str, post_id: str | None = None, photo: Photo | None = None) -> AgentReply | None:
@@ -48,7 +52,8 @@ class SalesAgent:
         if photo is not None:
             convo.keep_photo(photo)
         tools = ShopTools(self._shop, convo)
-        context = self._context(post_id, convo.handed_off, sent_photo=photo is not None and self._shop.tryon is not None)
+        photos_used = self._shop.tryon is not None or self._shop.photo_match is not None
+        context = self._context(post_id, convo.handed_off, sent_photo=photo is not None and photos_used)
         convo.history.append(self._model.user_turn(render_user(text, context)))
         used: list[str] = []
         rewrites = 0

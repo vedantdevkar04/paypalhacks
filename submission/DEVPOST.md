@@ -77,6 +77,8 @@ It works in a web chat that anyone can try and on WhatsApp.
 - **Channels:** a web chat, and WhatsApp through Twilio, with every webhook's HMAC signature
   checked.
 - **An owner dashboard** built on **AG Grid**, deployed on **Render**.
+- **Channel3** for market prices on the owner dashboard (what similar items sell for elsewhere) and for
+  matching a customer's photo to our closest product.
 - **A dispatch board** built on **Bryntum Scheduler**: warehouses, vans, driver shifts and shipments for the day.
   Drag a shipment onto a driver and HiClose checks the move; paid PayPal orders show up as shipments to the PayPal address's city.
 
@@ -117,7 +119,6 @@ It works in a web chat that anyone can try and on WhatsApp.
 ## What's next for HiClose
 
 - Instagram comments and DMs, once the Meta app is approved
-- Matching product photos customers send
 - A cart for several items in one PayPal order
 - An owner app to take over chats and reply, with PayPal refunds and tracking from the same screen
 - Persistent storage and a hosted plan for real shops
@@ -135,5 +136,5 @@ It works in a web chat that anyone can try and on WhatsApp.
 - [ ] README placeholders filled: WhatsApp join phrase, sandbox buyer login, video link
 - [ ] Repo is public and MIT shows in the GitHub About box
 - [ ] Wake the live site just before submitting (open https://hiclose.onrender.com)
-- [ ] Opt in to sponsor prizes: AG Grid, Bryntum, Render
+- [ ] Opt in to sponsor prizes: AG Grid, Bryntum, Channel3, Render
 - [ ] Submitted before 12:00 PT on 12 Nov (aim for 09:00 PT)

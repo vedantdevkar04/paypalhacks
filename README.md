@@ -99,7 +99,7 @@ fake money.
 ### AI
 
 **Gemini 3.6 Flash** with function calling, falling back to **Gemini 3.5 Flash-Lite** when busy.
-Six tools: `list_products`, `get_product`, `show_photo`, `propose_price`, `checkout`, `hand_to_owner`.
+Tools: `list_products`, `get_product`, `show_photo`, `identify_photo`, `propose_price`, `checkout`, `hand_to_owner`.
 
 ### Sponsor tools
 
@@ -108,6 +108,11 @@ Six tools: `list_products`, `get_product`, `show_photo`, `propose_price`, `check
   shifts, shipments are bars you drag onto them, and a grid shows each warehouse's inventory against
   capacity and its dock slots. Every drop is checked by the server (shift, delivery window, vehicle
   capacity and home warehouse, double booking, docks), and paid PayPal orders appear as new shipments.
+- **Channel3**: two ways, neither touching our prices or checkout. (1) The owner dashboard compares each
+  product's list price with similar items at other stores (low, median, high, and below / in line / above
+  market), so the owner can set prices. Only the owner sees it; the sales agent never gets these numbers.
+  (2) A customer sends a photo ("do you have this?"): Channel3's image search says what it is, and our code
+  maps it to our closest products. The agent never names other stores or brands.
 - **Render**: hosting, deployed from `render.yaml`
 
 ---
@@ -150,7 +155,8 @@ fixed the scorer and re-scored the same transcripts. Re-run it with `python -m h
 - **WhatsApp runs on Twilio's sandbox,** so you need to send the join phrase first. Instagram isn't
   connected: Meta allows that only for approved apps.
 - **One item per checkout.** There's no cart yet.
-- **Photos aren't matched to products yet.** The agent asks which item they mean.
+- **Photo matching and market prices need a Channel3 key.** Without `CHANNEL3_API_KEY` both are off and
+  the agent asks which item they mean. Matching sends the customer's photo to Channel3's image search.
 - **The PayPal Agent Toolkit isn't used.** HiClose calls PayPal's REST APIs directly, so that every
   money action goes through our rules engine first.
 

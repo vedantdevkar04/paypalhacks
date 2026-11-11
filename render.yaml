@@ -43,3 +43,5 @@ services:
         sync: false
       - key: TWILIO_WHATSAPP_FROM
         value: whatsapp:+14155238886
+      - key: CHANNEL3_API_KEY
+        sync: false

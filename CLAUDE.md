@@ -82,8 +82,11 @@ limits and keep WhatsApp out of the video.
 9. **Money is integer cents** (`int`), never `float`.
 10. **Sandbox only, and no secrets in the repo.** Keys live in `.env`, which is gitignored.
 11. **Never present this as PayPal's own product.** Use "payments by PayPal" only.
-12. **Customer photos are for try-ons only.** Kept in memory on the conversation for 30 minutes,
-    never logged or written to disk; previews are served at unguessable `/tryon/<token>` URLs for an
+12. **Customer photos are for try-ons and photo matching only.** Kept in memory on the conversation
+    for 30 minutes, never logged or written to disk. For matching, the photo goes to Channel3's image
+    search (not cached); the agent sees only what the item is and our product IDs, never other stores,
+    brands or their prices. Market prices from Channel3 are owner-only and never reach the agent (rule 1).
+    previews are served at unguessable `/tryon/<token>` URLs for an
     hour. The agent never comments on a customer's body or looks.
 
 ## Layout

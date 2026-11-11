@@ -22,6 +22,7 @@ from hiclose.api.service import HiCloseService
 from hiclose.channels import OutgoingMessage, WebChannel
 from hiclose.channels.whatsapp import WhatsAppChannel
 from hiclose.logistics import DispatchBoard, DispatchError
+from hiclose.market import Channel3Client, PhotoMatcher, market_report
 from hiclose.paypal import PayPalError, PayPalWebhooks
 from hiclose.rules import CatalogError
 
@@ -51,6 +52,7 @@ def create_app(
     webhooks: PayPalWebhooks | None = None,
     limiter: RateLimiter | None = None,
     whatsapp: WhatsAppChannel | None = None,
+    market_client: Channel3Client | None = None,
 ) -> FastAPI:
     @asynccontextmanager
     async def lifespan(_app):
@@ -135,7 +137,10 @@ def create_app(
                     "image_url": f"/products/{product.image}" if product.image else None,
                     "sizes_in_stock": view["sizes_in_stock"],
                 })
-        return {"brand": service.shop.brand, "posts": posts, "tryon": service.shop.tryon is not None}
+        shop = service.shop
+        return {"brand": shop.brand, "posts": posts, "tryon": shop.tryon is not None,
+                "photo_match": shop.photo_match is not None,
+                "photos": shop.tryon is not None or shop.photo_match is not None}
 
     @app.post("/api/chat")
     async def chat(payload: dict, request: Request):
@@ -252,6 +257,14 @@ def create_app(
         result = board().auto_assign()
         return {**result, "board": board().view(stock_of)}
 
+    # ---- market prices from Channel3 (owner dashboard) -----------------------------------------
+
+    @app.get("/api/market")
+    def market():
+        if market_client is None:
+            return {"enabled": False, "rows": []}
+        return {"enabled": True, "rows": market_report(market_client, service.shop.catalog)}
+
     @app.get("/api/stats")
     def stats():
         s = service.stats
@@ -280,6 +293,9 @@ def create_default_app() -> FastAPI:
     image_model = GeminiImageModel.from_env() if os.environ.get("TRYON_ENABLED", "0") == "1" else None
     studio = TryOnStudio(image_model, STATIC / "products") if image_model else None
     shop = Shop(brand, Catalog.from_json(ROOT / "fixtures" / "catalog.json"), QuoteBook(), payments, studio)
+    channel3 = Channel3Client.from_env()
+    if channel3 is not None:
+        shop.photo_match = PhotoMatcher(channel3, shop.catalog)
     agent = SalesAgent(GeminiModel.from_env(), shop, ConversationStore())
     web = WebChannel()
     whatsapp = WhatsAppChannel.from_env()
@@ -288,4 +304,4 @@ def create_default_app() -> FastAPI:
     service = HiCloseService(agent, shop, payments, channels, dispatch=dispatch)
     webhook_id = os.environ.get("PAYPAL_WEBHOOK_ID", "")
     webhooks = PayPalWebhooks(client, payments, webhook_id) if webhook_id else None
-    return create_app(service, web, webhooks, whatsapp=whatsapp)
+    return create_app(service, web, webhooks, whatsapp=whatsapp, market_client=channel3)

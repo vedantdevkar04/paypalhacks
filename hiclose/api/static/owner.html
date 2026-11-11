@@ -54,6 +54,12 @@
     <div class="grid" id="orders"></div>
     <p class="note">An order shows PAID only after PayPal confirms the capture for the exact quoted amount.</p>
   </section>
+  <section class="card">
+    <h2>Market prices (Channel3)</h2>
+    <div class="grid" id="market" style="height:260px"></div>
+    <p class="note" id="marketNote">What similar items sell for at other stores, to help you set your list and lowest prices.
+      Only you see this: the sales agent never uses these numbers.</p>
+  </section>
 </main>
 <script>
 const $ = (id) => document.getElementById(id);
@@ -88,6 +94,36 @@ const orders = agGrid.createGrid($("orders"), {
     { field: "ships_to", headerName: "Ships to", width: 150 },
   ],
 });
+
+const positionStyle = (p) => ({ "below market": { color: "#1f7a4d", fontWeight: 600 }, "above market": { color: "#b4541a", fontWeight: 600 } }[p.value] || null);
+const market = agGrid.createGrid($("market"), {
+  theme, rowData: [], getRowId: (p) => p.data.product_id,
+  defaultColDef: { sortable: true, resizable: true },
+  columnDefs: [
+    { field: "product", headerName: "Our product", flex: 1, minWidth: 170 },
+    { field: "our_price", headerName: "Our price", width: 105 },
+    { field: "low", headerName: "Market low", width: 110 },
+    { field: "median", headerName: "Median", width: 100 },
+    { field: "high", headerName: "Market high", width: 115 },
+    { field: "status", headerName: "Position", width: 135, cellStyle: positionStyle },
+    { field: "compared", headerName: "Compared", width: 105 },
+    { field: "examples", headerName: "Similar items", flex: 1.6, minWidth: 260, sortable: false, tooltipValueGetter: (p) => p.valueFormatted,
+      valueFormatter: (p) => (p.value || []).map((e) => `${e.title} (${e.store}) ${e.price}`).join(" · ") },
+  ],
+});
+
+async function loadMarket() {
+  try {
+    const data = await (await fetch("/api/market")).json();
+    if (!data.enabled) {
+      $("marketNote").textContent = "Add a CHANNEL3_API_KEY to compare your prices with similar items at other stores.";
+      return;
+    }
+    market.setGridOption("rowData", data.rows);
+  } catch {
+    // server waking up; the next load tries again
+  }
+}
 
 function tile(value, label) {
   const t = document.createElement("div");
@@ -130,6 +166,8 @@ async function refresh() {
 }
 refresh();
 setInterval(refresh, 5000);
+loadMarket();
+setInterval(loadMarket, 10 * 60 * 1000);
 </script>
 </body>
 </html>

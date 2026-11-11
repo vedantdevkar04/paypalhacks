@@ -56,8 +56,14 @@ TRYON_RULE = """- When a customer asks how something would look on them, call tr
 """
 
 
-def system_prompt(brand: str, tryon: bool = False) -> str:
-    return SYSTEM.format(brand=brand, tryon=TRYON_RULE if tryon else "")
+PHOTO_MATCH_RULE = """- When a customer sends a photo of a product and asks if we have it, call identify_photo and offer
+  our closest item. Never name other stores or brands.
+"""
+
+
+def system_prompt(brand: str, tryon: bool = False, photo_match: bool = False) -> str:
+    extra = (TRYON_RULE if tryon else "") + (PHOTO_MATCH_RULE if photo_match else "")
+    return SYSTEM.format(brand=brand, tryon=extra)
 
 
 def render_user(text: str, context: str | None) -> str:

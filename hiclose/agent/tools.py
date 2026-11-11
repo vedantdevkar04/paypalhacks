@@ -1,7 +1,7 @@
 """What the agent can do. Every number comes from the rules engine; the model only picks a tool."""
 
 from dataclasses import dataclass
-from typing import Protocol
+from typing import Any, Protocol
 
 import logging
 
@@ -38,6 +38,7 @@ class Shop:
     quotes: QuoteBook
     checkout: CheckoutProvider
     tryon: TryOnStudio | None = None  # None: try-ons switched off
+    photo_match: Any = None  # hiclose.market.PhotoMatcher, or None when Channel3 isn't configured
 
 
 SPECS = [
@@ -52,6 +53,12 @@ SPECS = [
         "Send the customer a photo of a product. Use when you first greet them about a product, or when they "
         "ask to see it or what it looks like. The photo is attached to your reply automatically; never write a link.",
         {"type": "object", "properties": {"product_id": {"type": "string"}}, "required": ["product_id"]},
+    ),
+    ToolSpec(
+        "identify_photo",
+        "Use when the customer sends a photo of a product (a screenshot, something they saw) and asks if we have "
+        "it or something like it. Says what the item is and which of our products are closest.",
+        {"type": "object", "properties": {}},
     ),
     ToolSpec(
         "try_on",
@@ -103,9 +110,9 @@ class ShopTools:
         self._priced_this_turn: dict[str, dict] = {}
 
     def specs(self) -> list[ToolSpec]:
-        if self._shop.tryon is None:  # try-ons switched off: the agent doesn't see the tool at all
-            return [s for s in SPECS if s.name != "try_on"]
-        return SPECS
+        # Features that are switched off aren't shown to the agent at all.
+        off = {name for name, on in (("try_on", self._shop.tryon), ("identify_photo", self._shop.photo_match)) if on is None}
+        return [s for s in SPECS if s.name not in off]
 
     def allowed_cents(self) -> set[int]:
         if self.checkout_cents is not None:
@@ -146,6 +153,28 @@ class ShopTools:
             return {"ok": False, "error": "no photo for this product; describe it in words instead"}
         self.image_url = f"/products/{product.image}"
         return {"ok": True, "say": "The photo is attached to your reply. Don't describe it as a link."}
+
+    def _identify_photo(self) -> dict:
+        matcher = self._shop.photo_match
+        if matcher is None:
+            return {"ok": False, "error": "photo matching isn't available; ask what they're looking for"}
+        photo = self._convo.fresh_photo()
+        if photo is None:
+            return {"ok": True, "needs_photo": True, "say": "Ask the customer to send a photo of the item."}
+        try:
+            found = matcher.match(photo)
+        except Exception as error:
+            logging.getLogger("hiclose").warning("photo match failed: %s", error)
+            return {"ok": False, "error": "couldn't look at the photo right now; ask them to describe the item"}
+        ours = [self._view(pid) for pid in found["our_matches"]]
+        if not found["looks_like"]:
+            return {"ok": True, "looks_like": None, "say": "Couldn't tell what the item is; ask them to describe it."}
+        result = {"ok": True, "looks_like": found["looks_like"], "our_closest": ours,
+                  "say": "Tell them what it looks like and offer our closest item(s), with show_photo if useful. "
+                         "Never name other stores or brands, and never quote prices except ours from tools."}
+        if not ours:
+            result["say"] = "We don't sell anything like it. Say so kindly in one line and suggest one or two things we do sell."
+        return result
 
     def _try_on(self, product_id: str) -> dict:
         product = self._shop.catalog.get(product_id)
