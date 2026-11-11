@@ -4,6 +4,7 @@
   "products": [
     {
       "product_id": "jacket-denim",
+      "image": "jacket-denim.jpg",
       "name": "Washed Denim Jacket",
       "description": "Boxy fit, mid-wash cotton denim, brass buttons. Runs slightly large.",
       "currency": "USD",
@@ -15,6 +16,7 @@
     },
     {
       "product_id": "tote-canvas",
+      "image": "tote-canvas.jpg",
       "name": "Block-Print Canvas Tote",
       "description": "Hand block-printed cotton canvas, inner pocket, fits a 14-inch laptop.",
       "currency": "USD",
@@ -26,6 +28,7 @@
     },
     {
       "product_id": "scarf-silk",
+      "image": "scarf-silk.jpg",
       "name": "Indigo Silk Scarf",
       "description": "Natural indigo dye on mulberry silk, 90 by 90 cm, hand-rolled edges.",
       "currency": "EUR",
@@ -37,6 +40,7 @@
     },
     {
       "product_id": "shirt-linen",
+      "image": "shirt-linen.jpg",
       "name": "Relaxed Linen Shirt",
       "description": "Breathable washed linen, camp collar, coconut-shell buttons.",
       "currency": "GBP",

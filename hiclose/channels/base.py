@@ -30,6 +30,7 @@ class OutgoingMessage:
     customer_id: str
     text: str
     checkout_url: str | None = None
+    image_url: str | None = None  # a product photo from our own catalog, as a site path like /products/x.jpg
 
 
 class ChannelAdapter(Protocol):

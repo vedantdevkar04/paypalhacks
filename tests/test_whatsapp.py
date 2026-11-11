@@ -69,10 +69,33 @@ def test_reply_goes_out_through_twilio_with_the_checkout_link():
 def test_twiml_escapes_text_and_gives_each_reply_its_own_message():
     first = OutgoingMessage("whatsapp", "whatsapp:+1", "Tom & Jerry <3")
     second = OutgoingMessage("whatsapp", "whatsapp:+1", "Pay here", "https://pay.example/?a=1&b=2")
-    xml = WhatsAppChannel.twiml([first, second])
-    assert "<Message>Tom &amp; Jerry &lt;3</Message>" in xml
-    assert "a=1&amp;b=2</Message>" in xml and xml.count("<Message>") == 2
-    assert WhatsAppChannel.twiml(None).endswith("<Response></Response>")
+    xml = channel().twiml([first, second])
+    assert "<Message><Body>Tom &amp; Jerry &lt;3</Body></Message>" in xml
+    assert "a=1&amp;b=2</Body>" in xml and xml.count("<Message>") == 2
+    assert channel().twiml(None).endswith("<Response></Response>")
+
+
+PHOTO = OutgoingMessage("whatsapp", "whatsapp:+1", "Here it is!", image_url="/products/jacket-denim.jpg")
+
+
+def test_photo_rides_along_as_twiml_media_at_our_public_address():
+    hosted = WhatsAppChannel("AC123", TOKEN, "whatsapp:+14155238886", public_base_url="https://hiclose.onrender.com/")
+    xml = hosted.twiml(PHOTO)
+    assert "<Body>Here it is!</Body><Media>https://hiclose.onrender.com/products/jacket-denim.jpg</Media>" in xml
+
+
+def test_photo_is_left_out_without_an_https_public_address():
+    assert "<Media>" not in channel().twiml(PHOTO)
+    local = WhatsAppChannel("AC123", TOKEN, "whatsapp:+14155238886", public_base_url="http://localhost:8000")
+    assert "<Media>" not in local.twiml(PHOTO)
+
+
+def test_api_fallback_sends_the_photo_as_media_url():
+    outbox = Outbox()
+    hosted = WhatsAppChannel("AC123", TOKEN, "whatsapp:+14155238886", transport=httpx.MockTransport(outbox.handler),
+                             public_base_url="https://hiclose.onrender.com")
+    asyncio.run(hosted.send(PHOTO))
+    assert outbox.sent[0]["MediaUrl"] == "https://hiclose.onrender.com/products/jacket-denim.jpg"
 
 
 class Refused(Outbox):
@@ -109,7 +132,7 @@ def test_signed_webhook_gets_the_agent_reply_as_twiml_without_an_api_send():
     client = build([say("Hey! The denim jacket is $80 ✨")], outbox)
     response = signed(client, incoming("hi"))
     assert response.status_code == 200 and response.headers["content-type"].startswith("application/xml")
-    assert "<Message>Hey! The denim jacket is $80 ✨</Message>" in response.text
+    assert "<Message><Body>Hey! The denim jacket is $80 ✨</Body></Message>" in response.text
     assert outbox.sent == []
 
 

@@ -212,3 +212,13 @@ def test_handed_off_chat_shows_owner_needed():
 def test_chat_page_is_served():
     client, *_ = build([])
     assert "HiClose demo shop" in client.get("/").text
+
+
+def test_product_photos_are_served_and_reach_the_web_transcript():
+    client, *_ = build([call("show_photo", product_id="scarf-silk"), say("Here's the indigo scarf!")])
+    posts = client.get("/api/shop").json()["posts"]
+    assert posts[0]["image_url"] == "/products/jacket-denim.jpg"
+    photo = client.get("/products/jacket-denim.jpg")
+    assert photo.status_code == 200 and photo.headers["content-type"] == "image/jpeg"
+    client.post("/api/chat", json={"customer_id": "riya", "text": "show me the scarf"})
+    assert transcript(client)[-1]["image_url"] == "/products/scarf-silk.jpg"

@@ -23,6 +23,7 @@ class Product:
     sizes: tuple[str, ...]
     post_ids: tuple[str, ...] = ()
     max_rounds: int = 3
+    image: str | None = None  # file name under hiclose/api/static/products/, served at /products/<image>
     policy: Policy = field(init=False, repr=False)
 
     def __post_init__(self) -> None:

@@ -28,18 +28,32 @@ class WhatsAppChannel:
         auth_token: str,
         from_number: str,
         transport: httpx.AsyncBaseTransport | None = None,
+        public_base_url: str = "",
     ):
         self._sid = account_sid
         self._token = auth_token
         self._from = from_number if from_number.startswith("whatsapp:") else f"whatsapp:{from_number}"
         self._transport = transport
+        # Twilio downloads photos itself, so they need our public address (Render sets RENDER_EXTERNAL_URL).
+        self._base = public_base_url.rstrip("/")
 
     @classmethod
     def from_env(cls) -> "WhatsAppChannel | None":
         sid, token = os.environ.get("TWILIO_ACCOUNT_SID", ""), os.environ.get("TWILIO_AUTH_TOKEN", "")
         if not sid or not token:
             return None
-        return cls(sid, token, os.environ.get("TWILIO_WHATSAPP_FROM", "whatsapp:+14155238886"))
+        base = os.environ.get("PUBLIC_BASE_URL") or os.environ.get("RENDER_EXTERNAL_URL") or ""
+        return cls(sid, token, os.environ.get("TWILIO_WHATSAPP_FROM", "whatsapp:+14155238886"), public_base_url=base)
+
+    def media_url(self, message: OutgoingMessage) -> str | None:
+        """The photo as an https URL Twilio can fetch, or None (no photo, or no public address)."""
+        if not message.image_url:
+            return None
+        if message.image_url.startswith("https://"):
+            return message.image_url
+        if message.image_url.startswith("/") and self._base.startswith("https://"):
+            return self._base + message.image_url
+        return None
 
     @staticmethod
     def form(body: bytes) -> dict[str, str]:
@@ -74,23 +88,32 @@ class WhatsAppChannel:
             body += f"\n\nPay securely with PayPal: {message.checkout_url}"
         return body[:1600]
 
-    @classmethod
-    def twiml(cls, messages: "list[OutgoingMessage] | OutgoingMessage | None") -> str:
+    def twiml(self, messages: "list[OutgoingMessage] | OutgoingMessage | None") -> str:
         """Replies as TwiML, returned straight to Twilio's webhook call (no API send).
-        Each reply becomes its own <Message>, so the customer gets them as separate bubbles."""
+        Each reply becomes its own <Message>, so the customer gets them as separate bubbles;
+        a product photo rides along as <Media>."""
         if messages is None:
             messages = []
         elif isinstance(messages, OutgoingMessage):
             messages = [messages]
-        body = "".join(f"<Message>{xml_escape(cls.render(m))}</Message>" for m in messages)
-        return f'<?xml version="1.0" encoding="UTF-8"?><Response>{body}</Response>'
+        parts = []
+        for message in messages:
+            media = self.media_url(message)
+            inner = f"<Body>{xml_escape(self.render(message))}</Body>"
+            if media:
+                inner += f"<Media>{xml_escape(media)}</Media>"
+            parts.append(f"<Message>{inner}</Message>")
+        return f'<?xml version="1.0" encoding="UTF-8"?><Response>{"".join(parts)}</Response>'
 
     async def send(self, message: OutgoingMessage) -> None:
-        body = self.render(message)
+        data = {"From": self._from, "To": message.customer_id, "Body": self.render(message)}
+        media = self.media_url(message)
+        if media:
+            data["MediaUrl"] = media
         async with httpx.AsyncClient(transport=self._transport, timeout=20) as client:
             response = await client.post(
                 f"https://api.twilio.com/2010-04-01/Accounts/{self._sid}/Messages.json",
-                data={"From": self._from, "To": message.customer_id, "Body": body},
+                data=data,
                 auth=(self._sid, self._token),
             )
             if response.is_error:

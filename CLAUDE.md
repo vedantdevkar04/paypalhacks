@@ -121,6 +121,7 @@ class OutgoingMessage:
     customer_id: str
     text: str
     checkout_url: str | None = None   # rendered as a button where the platform allows
+    image_url: str | None = None      # product photo from our catalog (/products/<file>), never a model-typed URL
 
 class ChannelAdapter(Protocol):
     def parse(self, payload: dict) -> list[IncomingMessage]: ...

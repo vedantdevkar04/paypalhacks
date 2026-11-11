@@ -44,6 +44,12 @@ SPECS = [
         {"type": "object", "properties": {"product_id": {"type": "string"}}, "required": ["product_id"]},
     ),
     ToolSpec(
+        "show_photo",
+        "Send the customer a photo of a product. Use when you first greet them about a product, or when they "
+        "ask to see it or what it looks like. The photo is attached to your reply automatically; never write a link.",
+        {"type": "object", "properties": {"product_id": {"type": "string"}}, "required": ["product_id"]},
+    ),
+    ToolSpec(
         "propose_price",
         "Use whenever the customer asks for a lower price or names a price. Returns the shop's answer; "
         "say exactly that price, never another.",
@@ -82,6 +88,7 @@ class ShopTools:
         self.order_id: str | None = None
         self.checkout_cents: int | None = None
         self.handed_off_now = False
+        self.image_url: str | None = None
         self._priced_this_turn: dict[str, dict] = {}
 
     def specs(self) -> list[ToolSpec]:
@@ -118,6 +125,14 @@ class ShopTools:
 
     def _get_product(self, product_id: str) -> dict:
         return {"ok": True, "product": self._view(product_id)}
+
+    def _show_photo(self, product_id: str) -> dict:
+        # The URL comes from our own catalog by product ID; the model never supplies one.
+        product = self._shop.catalog.get(product_id)
+        if not product.image:
+            return {"ok": False, "error": "no photo for this product; describe it in words instead"}
+        self.image_url = f"/products/{product.image}"
+        return {"ok": True, "say": "The photo is attached to your reply. Don't describe it as a link."}
 
     def _propose_price(self, product_id: str, offered_amount: str) -> dict:
         if product_id in self._priced_this_turn:

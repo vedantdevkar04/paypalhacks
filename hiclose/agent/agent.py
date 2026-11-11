@@ -17,6 +17,7 @@ class AgentReply:
     handed_off: bool = False
     tools_used: list[str] = field(default_factory=list)
     guard_rewrites: int = 0
+    image_url: str | None = None
 
 
 class SalesAgent:
@@ -46,7 +47,7 @@ class SalesAgent:
         rewrites = 0
 
         def reply(message: str) -> AgentReply:
-            return AgentReply(message, tools.checkout_url, tools.order_id, tools.handed_off_now, used, rewrites)
+            return AgentReply(message, tools.checkout_url, tools.order_id, tools.handed_off_now, used, rewrites, tools.image_url)
 
         for _ in range(self._max_steps):
             try:

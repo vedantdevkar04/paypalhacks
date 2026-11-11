@@ -119,7 +119,7 @@ class HiCloseService:
             self._advance(chat, "checkout")
             self.stats.checkouts += 1
             self.stats.log("checkout", customer=chat.customer, order=reply.order_id)
-        return await self._send(OutgoingMessage(message.channel, message.customer_id, reply.text, reply.checkout_url), deliver)
+        return await self._send(OutgoingMessage(message.channel, message.customer_id, reply.text, reply.checkout_url, reply.image_url), deliver)
 
     async def payment_returned(self, order_id: str) -> OrderRecord:
         record = await asyncio.to_thread(self.payments.confirm, order_id)

@@ -29,6 +29,8 @@
           text-align: left; padding: 0; color: inherit; font: inherit; }
   .post:focus-visible, .post.active { border-color: var(--brand); outline: none; }
   .post .art { aspect-ratio: 1; display: grid; place-items: center; font-size: 46px; }
+  .post img.art { width: 100%; height: auto; display: block; object-fit: cover; }
+  .msg .photo { display: block; width: 220px; max-width: 100%; aspect-ratio: 1; border-radius: 12px; margin: 2px 0 8px; background: var(--line); }
   .post .meta { padding: 8px 10px; font-size: 12.5px; }
   .post .meta b { display: block; font-size: 13px; }
   .hint { padding: 0 14px 14px; color: var(--muted); font-size: 12.5px; }
@@ -114,8 +116,15 @@ async function loadShop() {
     const card = document.createElement("button");
     card.className = "post";
     card.type = "button";
-    const art = document.createElement("div");
-    art.className = "art"; art.style.background = color; art.textContent = emoji;
+    let art;
+    if (post.image_url) {
+      art = document.createElement("img");
+      art.src = post.image_url; art.alt = post.name; art.loading = "lazy";
+    } else {
+      art = document.createElement("div");
+      art.style.background = color; art.textContent = emoji;
+    }
+    art.classList.add("art");
     const meta = document.createElement("div");
     meta.className = "meta";
     const name = document.createElement("b");
@@ -145,7 +154,13 @@ function render(message) {
   $("empty")?.remove();
   const bubble = document.createElement("div");
   bubble.className = `msg ${message.from}` + (message.text.startsWith("Paid ✅") ? " paid" : "");
-  bubble.textContent = message.text;
+  if (message.image_url && message.image_url.startsWith("/products/")) {
+    const photo = document.createElement("img");
+    photo.className = "photo"; photo.src = message.image_url; photo.alt = "Product photo";
+    photo.onload = () => { $("thread").scrollTop = $("thread").scrollHeight; };
+    bubble.append(photo);
+  }
+  bubble.append(document.createTextNode(message.text));
   if (message.checkout_url && message.checkout_url.startsWith("https://")) {
     bubble.append(document.createElement("br"));
     const pay = document.createElement("a");

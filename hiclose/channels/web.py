@@ -28,11 +28,11 @@ class WebChannel:
         return [message]
 
     async def send(self, message: OutgoingMessage) -> None:
-        self._record(message.customer_id, "shop", message.text, message.checkout_url)
+        self._record(message.customer_id, "shop", message.text, message.checkout_url, message.image_url)
 
     def transcript(self, customer_id: str, after: int = 0) -> list[dict]:
         return self._transcripts.get(customer_id, [])[after:]
 
-    def _record(self, customer_id: str, sender: str, text: str, checkout_url: str | None = None) -> None:
+    def _record(self, customer_id: str, sender: str, text: str, checkout_url: str | None = None, image_url: str | None = None) -> None:
         entries = self._transcripts.setdefault(customer_id, [])
-        entries.append({"n": len(entries) + 1, "from": sender, "text": text, "checkout_url": checkout_url})
+        entries.append({"n": len(entries) + 1, "from": sender, "text": text, "checkout_url": checkout_url, "image_url": image_url})

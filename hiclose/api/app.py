@@ -13,6 +13,7 @@ from contextlib import asynccontextmanager
 
 from fastapi import FastAPI, HTTPException, Request
 from fastapi.responses import FileResponse, HTMLResponse, Response
+from fastapi.staticfiles import StaticFiles
 
 from hiclose.agent.money import fmt
 from hiclose.api.ratelimit import RateLimiter
@@ -87,6 +88,8 @@ def create_app(
             log.warning("late whatsapp reply for %s queued for the customer's next message", message.message_id)
             app.state.whatsapp_pending.setdefault(message.customer_id, []).append(reply)
 
+    app.mount("/products", StaticFiles(directory=STATIC / "products"), name="products")
+
     @app.get("/")
     def chat_page():
         return FileResponse(STATIC / "index.html")
@@ -116,6 +119,7 @@ def create_app(
                     "name": product.name,
                     "description": product.description,
                     "price": fmt(product.list_cents, product.currency),
+                    "image_url": f"/products/{product.image}" if product.image else None,
                     "sizes_in_stock": view["sizes_in_stock"],
                 })
         return {"brand": service.shop.brand, "posts": posts}

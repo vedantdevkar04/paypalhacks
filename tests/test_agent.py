@@ -229,3 +229,17 @@ def test_each_customer_has_their_own_negotiation():
     ])
     assert agent.handle("whatsapp:+1", "40?").text == "I can do $76"
     assert agent.handle("whatsapp:+2", "40?").text == "I can do $76"
+
+
+def test_photo_comes_from_the_catalog_by_product_id():
+    agent, _, _ = agent_with([call("show_photo", product_id="jacket-denim"), say("Here it is! $80, sizes M and L.")])
+    reply = agent.handle("web:riya", "can I see it?")
+    assert reply.image_url == "/products/jacket-denim.jpg"
+    assert "show_photo" in reply.tools_used
+
+
+def test_photo_of_unknown_product_is_refused_and_nothing_attached():
+    agent, model, _ = agent_with([call("show_photo", product_id="https://evil.example/x.jpg"), say("Which item do you mean?")])
+    reply = agent.handle("web:riya", "show me")
+    assert reply.image_url is None
+    assert model.seen[1][-1]["results"][0][1]["ok"] is False
