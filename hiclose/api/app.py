@@ -112,7 +112,9 @@ def create_app(
 
     @app.get("/health")
     def health():
-        return {"ok": True, "agent_enabled": service.enabled}
+        studio = service.shop.tryon
+        tryon = {"enabled": studio is not None, **(studio.status() if studio else {})}
+        return {"ok": True, "agent_enabled": service.enabled, "tryon": tryon}
 
     @app.get("/api/shop")
     def shop():
@@ -130,7 +132,7 @@ def create_app(
                     "image_url": f"/products/{product.image}" if product.image else None,
                     "sizes_in_stock": view["sizes_in_stock"],
                 })
-        return {"brand": service.shop.brand, "posts": posts}
+        return {"brand": service.shop.brand, "posts": posts, "tryon": service.shop.tryon is not None}
 
     @app.post("/api/chat")
     async def chat(payload: dict, request: Request):
@@ -231,7 +233,8 @@ def create_default_app() -> FastAPI:
     client = PayPalClient.from_env()
     brand = os.environ.get("SHOP_BRAND", "Indigo Lane")
     payments = PayPalCheckout(client, OrderBook(), brand)
-    image_model = GeminiImageModel.from_env() if os.environ.get("TRYON_ENABLED", "1") == "1" else None
+    # Off by default: image generation needs a paid Gemini plan (the free tier's limit is 0).
+    image_model = GeminiImageModel.from_env() if os.environ.get("TRYON_ENABLED", "0") == "1" else None
     studio = TryOnStudio(image_model, STATIC / "products") if image_model else None
     shop = Shop(brand, Catalog.from_json(ROOT / "fixtures" / "catalog.json"), QuoteBook(), payments, studio)
     agent = SalesAgent(GeminiModel.from_env(), shop, ConversationStore())

@@ -27,7 +27,7 @@ class SalesAgent:
         self._shop = shop
         self._store = store
         self._max_steps = max_steps
-        self._system = system_prompt(shop.brand)
+        self._system = system_prompt(shop.brand, tryon=shop.tryon is not None)
 
     def _context(self, post_id: str | None, handed_off: str | None, sent_photo: bool = False) -> str | None:
         notes = []

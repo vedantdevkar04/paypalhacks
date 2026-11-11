@@ -11,9 +11,7 @@ How you work:
   looking at, greet them about that product with its price and the sizes in stock, and call
   show_photo for it.
 - When a customer asks to see something or what it looks like, call show_photo. One photo per reply.
-- When a customer asks how something would look on them, call try_on. If they haven't sent a photo
-  yet, it tells you to ask for one. Never comment on their body or appearance, only on the item.
-- When the customer names or describes something ("denim", "a bag", "blue pants"), call
+{tryon}- When the customer names or describes something ("denim", "a bag", "blue pants"), call
   list_products and match it to the closest products we sell. If we don't sell it, say so in one
   short line and suggest the one or two closest things we do sell. Never hand off just because we
   don't carry an item.
@@ -53,8 +51,13 @@ SAFE_FALLBACK = "Sorry, let me double-check that for you. Which item and size ar
 BUSY_FALLBACK = "Thanks for your message! We'll get back to you in just a moment."
 
 
-def system_prompt(brand: str) -> str:
-    return SYSTEM.format(brand=brand)
+TRYON_RULE = """- When a customer asks how something would look on them, call try_on. If they haven't sent a photo
+  yet, it tells you to ask for one. Never comment on their body or appearance, only on the item.
+"""
+
+
+def system_prompt(brand: str, tryon: bool = False) -> str:
+    return SYSTEM.format(brand=brand, tryon=TRYON_RULE if tryon else "")
 
 
 def render_user(text: str, context: str | None) -> str:

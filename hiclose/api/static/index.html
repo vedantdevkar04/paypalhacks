@@ -58,6 +58,7 @@
   form button:disabled { opacity: .5; cursor: default; }
   .attach { display: grid; place-items: center; width: 42px; flex: none; border: 1px solid var(--line); border-radius: 999px; cursor: pointer; font-size: 18px; }
   .attach:focus-within { outline: 2px solid var(--brand); }
+  .attach[hidden], .chips button[hidden] { display: none; }
   .msg .note { color: var(--muted); font-size: 12px; }
   .msg.customer .photo { margin: 0; }
   footer { padding: 0 16px 14px; color: var(--muted); font-size: 12px; }
@@ -85,7 +86,7 @@
     <div class="context" id="context"><span id="contextText"></span><button class="ghost" id="clearContext" type="button">✕</button></div>
     <div class="chips" id="chips"></div>
     <form id="form">
-      <label class="attach" title="Send a photo of yourself to try items on" aria-label="Send a photo">📷
+      <label class="attach" id="attach" hidden title="Send a photo of yourself to try items on" aria-label="Send a photo">📷
         <input type="file" id="photo" accept="image/jpeg,image/png,image/webp" hidden>
       </label>
       <input id="input" autocomplete="off" placeholder="Message Indigo Lane…" maxlength="1000" aria-label="Message">
@@ -113,6 +114,8 @@ function newCustomer() {
 async function loadShop() {
   const data = await (await fetch("/api/shop")).json();
   $("brand").textContent = data.brand;
+  $("attach").hidden = !data.tryon;
+  document.querySelector('[data-chip="tryon"]')?.toggleAttribute("hidden", !data.tryon);
   $("avatar").textContent = data.brand.split(" ").map((w) => w[0]).join("").slice(0, 2);
   posts = data.posts;
   const grid = $("posts");
@@ -259,6 +262,7 @@ function updateWho() { $("who").textContent = `You're customer ${customer}`; }
 for (const c of CHIPS) {
   const b = document.createElement("button");
   b.type = "button"; b.textContent = c; b.onclick = () => send(c);
+  if (c === "how would it look on me?") { b.dataset.chip = "tryon"; b.hidden = true; }
   $("chips").append(b);
 }
 updateWho();

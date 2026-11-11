@@ -145,3 +145,113 @@ def test_whatsapp_downloads_only_from_twilio_with_our_credentials():
     assert asyncio.run(channel.fetch_photo("https://evil.example/selfie.jpg")) is None
     assert asyncio.run(channel.fetch_photo("http://api.twilio.com/x")) is None
     assert len(seen) == 1
+
+
+class FakeGenai:
+    """Stands in for google-genai's client.models: each model name maps to a response or an error."""
+
+    def __init__(self, outcomes, listed=()):
+        self.outcomes = outcomes
+        self.listed = listed
+        self.called: list[str] = []
+        self.models = self
+
+    def generate_content(self, model, contents, config):
+        self.called.append(model)
+        outcome = self.outcomes[model]
+        if isinstance(outcome, Exception):
+            raise outcome
+        return outcome
+
+    def list(self):
+        from types import SimpleNamespace
+        return [SimpleNamespace(name=f"models/{n}", supported_actions=["generateContent"]) for n in self.listed]
+
+
+def image_response(data=b"PNG"):
+    from google.genai import types
+    return types.GenerateContentResponse(candidates=[types.Candidate(content=types.Content(role="model", parts=[
+        types.Part(inline_data=types.Blob(data=b"draft", mime_type="image/png"), thought=True),
+        types.Part(inline_data=types.Blob(data=data, mime_type="image/png"))]))])
+
+
+def text_response(text="I can't edit this photo."):
+    from google.genai import types
+    return types.GenerateContentResponse(candidates=[types.Candidate(content=types.Content(role="model", parts=[types.Part(text=text)]))])
+
+
+GARMENT = Photo(b"garment", "image/jpeg")
+
+
+def test_quota_errors_mean_unavailable_and_pause_further_calls():
+    from hiclose.agent.tryon import GeminiImageModel, TryOnFailed
+    quota = RuntimeError("429 RESOURCE_EXHAUSTED free tier limit: 0")
+    fake = FakeGenai({"a": quota, "b": quota})
+    model = GeminiImageModel("k", ["a", "b"], client=fake)
+    try:
+        model.dress(SELFIE, GARMENT, "Jacket")
+        raise AssertionError("expected TryOnFailed")
+    except TryOnFailed as failure:
+        assert failure.kind == "unavailable" and "RESOURCE_EXHAUSTED" in model.status()["last_error"]
+    calls = len(fake.called)
+    try:
+        model.dress(SELFIE, GARMENT, "Jacket")
+    except TryOnFailed as failure:
+        assert failure.kind == "unavailable"
+    assert len(fake.called) == calls and model.status()["paused_seconds"] > 0
+
+
+def test_unknown_model_names_fall_back_to_image_models_the_key_can_use():
+    from hiclose.agent.tryon import GeminiImageModel
+    fake = FakeGenai({"old": RuntimeError("404 NOT_FOUND"), "gemini-9-flash-image": image_response(b"FINAL")},
+                     listed=["gemini-9-flash-image", "old"])
+    model = GeminiImageModel("k", ["old"], client=fake)
+    assert model.dress(SELFIE, GARMENT, "Jacket") == Photo(b"FINAL", "image/png")  # final image, not the draft
+    assert fake.called == ["old", "gemini-9-flash-image"] and model.status()["last_model"] == "gemini-9-flash-image"
+
+
+def test_model_that_declines_means_no_image_so_a_clearer_photo_might_help():
+    from hiclose.agent.tryon import GeminiImageModel
+    model = GeminiImageModel("k", ["a"], client=FakeGenai({"a": text_response()}))
+    assert model.dress(SELFIE, GARMENT, "Jacket") is None
+    assert "made no image" in model.status()["last_error"]
+
+
+class Unavailable(FakeImageModel):
+    def dress(self, person, garment, item):
+        from hiclose.agent.tryon import TryOnFailed
+        raise TryOnFailed("unavailable", "429 quota")
+
+
+def test_outage_is_not_blamed_on_the_customers_photo():
+    shop = make_shop()
+    shop.tryon = TryOnStudio(Unavailable(), PRODUCTS)
+    chat = FakeModel([call("try_on", product_id="jacket-denim"), say("Sorry! Here's a photo instead.")])
+    SalesAgent(chat, shop, ConversationStore()).handle("web:riya", "(sent a photo)", photo=SELFIE)
+    error = results(chat)[0][1]["error"]
+    assert "not their photo" in error and "clearer" not in error
+
+
+def test_health_reports_try_on_status():
+    shop, _ = studio_shop()
+    web = WebChannel()
+    service = HiCloseService(SalesAgent(FakeModel([]), shop, ConversationStore()), shop, FakePayments(), {"web": web})
+    assert TestClient(create_app(service, web)).get("/health").json()["tryon"]["enabled"] is True
+
+
+def test_when_switched_off_the_agent_never_sees_try_on():
+    from hiclose.agent import ShopTools
+    from hiclose.agent.conversation import Conversation
+    from hiclose.agent.instructions import system_prompt
+    off = make_shop()
+    assert "try_on" not in [s.name for s in ShopTools(off, Conversation("x")).specs()]
+    assert "try_on" not in system_prompt("Indigo Lane")
+    on, _ = studio_shop()
+    assert "try_on" in [s.name for s in ShopTools(on, Conversation("x")).specs()]
+    assert "try_on" in system_prompt("Indigo Lane", tryon=True)
+    web = WebChannel()
+    service = HiCloseService(SalesAgent(FakeModel([]), off, ConversationStore()), off, FakePayments(), {"web": web})
+    client = TestClient(create_app(service, web))
+    assert client.get("/api/shop").json()["tryon"] is False
+    assert client.get("/health").json()["tryon"] == {"enabled": False}
+

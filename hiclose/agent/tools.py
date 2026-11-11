@@ -6,7 +6,7 @@ from typing import Protocol
 import logging
 
 from hiclose.agent.conversation import MAX_TRYONS, Conversation
-from hiclose.agent.tryon import TryOnStudio
+from hiclose.agent.tryon import TryOnFailed, TryOnStudio
 from hiclose.agent.llm import ToolCall, ToolSpec
 from hiclose.agent.money import fmt, parse_amount
 from hiclose.rules import Catalog, CatalogError, Quote, QuoteBook, decide
@@ -103,6 +103,8 @@ class ShopTools:
         self._priced_this_turn: dict[str, dict] = {}
 
     def specs(self) -> list[ToolSpec]:
+        if self._shop.tryon is None:  # try-ons switched off: the agent doesn't see the tool at all
+            return [s for s in SPECS if s.name != "try_on"]
         return SPECS
 
     def allowed_cents(self) -> set[int]:
@@ -159,10 +161,17 @@ class ShopTools:
             return {"ok": False, "error": "try-on limit reached for this chat; help them choose a size instead"}
         try:
             url = studio.render(photo, product)
+        except TryOnFailed as failure:
+            logging.getLogger("hiclose").warning("try-on failed for %s: %s", product_id, failure)
+            if failure.kind == "no_image":
+                return {"ok": False, "error": "couldn't make a preview from that photo; ask for a clearer, well-lit "
+                                              "photo of them from the waist up, or offer show_photo"}
+            return {"ok": False, "error": "try-ons aren't working right now; that's on our side, not their photo. "
+                                          "Apologise briefly and offer show_photo instead"}
         except Exception:
-            logging.getLogger("hiclose").warning("try-on failed for %s", product_id, exc_info=True)
-            return {"ok": False, "error": "couldn't make a preview from that photo; ask for a clearer, well-lit "
-                                          "photo of them from the waist up, or offer show_photo"}
+            logging.getLogger("hiclose").exception("try-on crashed for %s", product_id)
+            return {"ok": False, "error": "try-ons aren't working right now; that's on our side, not their photo. "
+                                          "Apologise briefly and offer show_photo instead"}
         self._convo.tryons += 1
         self.image_url = url
         return {"ok": True, "say": "The try-on preview is attached. Say it's an AI preview and the real fit may "
