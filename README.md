@@ -11,7 +11,7 @@ no real money moves.
 | 🛍️ Shop chat (no account needed) | **https://hiclose.onrender.com** |
 | 📊 Owner dashboard | **https://hiclose.onrender.com/owner** |
 | 🚚 Dispatch board | **https://hiclose.onrender.com/dispatch** |
-| 💬 WhatsApp | Send `<JOIN PHRASE>` to **+1 415 523 8886**, then say "hi" |
+| 💬 WhatsApp | Send `join introduced-abroad` to **+1 415 523 8886**, then say "hi" |
 | 🎬 Demo video | `<YouTube link>` |
 
 The free server sleeps when idle: the first visit can take ~50 seconds to wake it.
