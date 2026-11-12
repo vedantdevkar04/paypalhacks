@@ -8,3 +8,10 @@ node_modules/
 .vs/
 .idea/
 .DS_Store
+
+# demo video working files
+submission/_intro_recording/
+submission/*.mp4
+submission/*.m4a
+submission/*.wav
+submission/*.mp3

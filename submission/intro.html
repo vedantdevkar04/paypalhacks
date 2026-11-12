@@ -36,13 +36,32 @@
   .stamp.in { opacity: 1; transform: rotate(-8deg) scale(1); }
 
   /* 1: the shop */
-  #s1 .wrap { position: absolute; left: 110px; top: 150px; width: 520px; }
+  #s1 .wrap { position: absolute; left: 360px; top: 150px; width: 450px; }
+  /* Maya: big and centred while she's introduced, then she steps to her place beside the shop */
+  #maya { position: absolute; left: 60px; top: 150px; width: 250px; opacity: 0;
+          transform: translate(455px, -20px) scale(1.5); transition: opacity .6s ease, transform 1.1s cubic-bezier(.6,0,.2,1); }
+  #maya.in { opacity: 1; }
+  #maya.placed { transform: none; }
+  #maya svg { display: block; width: 100%; height: auto; overflow: visible; animation: breathe 3.2s ease-in-out infinite; }
+  @keyframes breathe { 50% { transform: translateY(-4px); } }
+  #maya .arm { transform-origin: 172px 228px; transition: transform .9s cubic-bezier(.5,0,.3,1) .5s; }
+  #maya.placed .arm { transform: rotate(150deg); }
+  #maya .forearm { transform-origin: 207px 181px; }
+  #maya.in .forearm { animation: wave 1.1s ease-in-out .4s 2; }
+  @keyframes wave { 25% { transform: rotate(20deg); } 50% { transform: rotate(-10deg); } 75% { transform: rotate(18deg); } }
+  #maya .eyes { transform-origin: 120px 122px; animation: blink 4.2s infinite; }
+  @keyframes blink { 0%, 90%, 100% { transform: scaleY(1); } 94% { transform: scaleY(.1); } }
+  #maya .name { text-align: center; margin-top: -6px; opacity: 0; transition: opacity .5s ease .9s; }
+  #maya.placed .name { opacity: 1; }
+  #maya .name b { display: block; font-size: 24px; }
+  #maya .name small { color: var(--muted); font-size: 16px; }
   #s1 h1 { font-size: 64px; margin: 26px 0 6px; letter-spacing: -.02em; }
   #s1 .sub { color: var(--muted); font-size: 24px; margin: 0 0 34px; }
   #s1 .facts { display: flex; flex-direction: column; gap: 14px; }
   #s1 .fact { display: flex; align-items: center; gap: 14px; font-size: 26px; }
   #s1 .fact span { font-size: 34px; width: 46px; text-align: center; }
-  #globe { position: absolute; right: 90px; top: 110px; width: 500px; height: 500px; }
+  #globe { position: absolute; right: 70px; top: 140px; width: 440px; height: 440px; opacity: 0; transition: opacity .8s ease; }
+  #globe.in { opacity: 1; }
   #globe .dot { position: absolute; width: 7px; height: 7px; border-radius: 50%; background: #d8d2c7; }
   #globe .pin { position: absolute; width: 16px; height: 16px; margin: -4px; border-radius: 50%; background: var(--brand);
                 opacity: 0; transform: scale(0); transition: all .4s cubic-bezier(.2,.9,.3,1.5); }
@@ -129,6 +148,48 @@
   <div id="prog"></div>
 
   <section class="scene" id="s1">
+    <div id="maya">
+      <svg viewBox="0 0 240 360" role="img" aria-label="Maya">
+        <ellipse cx="120" cy="356" rx="96" ry="8" fill="#000" opacity=".06"/>
+        <!-- hair (behind the head) and bun -->
+        <circle cx="120" cy="54" r="23" fill="#2b2420"/>
+        <path d="M64 128 C60 70 92 50 120 50 C150 50 182 70 176 128 C176 150 166 160 160 166 L80 166 C72 158 64 148 64 128Z" fill="#2b2420"/>
+        <!-- body -->
+        <path d="M38 360 C38 262 70 214 120 212 C170 214 202 262 202 360Z" fill="#2f3a8f"/>
+        <path d="M100 212 L120 238 L140 212Z" fill="#c9cdf0"/>
+        <rect x="107" y="158" width="26" height="60" rx="12" fill="#d9a07b"/>
+        <!-- tailor's tape measure -->
+        <path d="M97 207 Q120 226 143 207" fill="none" stroke="#f2c14e" stroke-width="11"/>
+        <line x1="99" y1="208" x2="91" y2="318" stroke="#f2c14e" stroke-width="12"/>
+        <line x1="141" y1="208" x2="149" y2="300" stroke="#f2c14e" stroke-width="12"/>
+        <line x1="99" y1="214" x2="91" y2="318" stroke="#b8862b" stroke-width="5" stroke-dasharray="1.5 7"/>
+        <line x1="141" y1="214" x2="149" y2="300" stroke="#b8862b" stroke-width="5" stroke-dasharray="1.5 7"/>
+        <!-- left arm, resting -->
+        <path d="M66 236 C52 270 50 310 53 346" fill="none" stroke="#2f3a8f" stroke-width="26" stroke-linecap="round"/>
+        <!-- head -->
+        <circle cx="70" cy="124" r="9" fill="#d9a07b"/>
+        <circle cx="170" cy="124" r="9" fill="#d9a07b"/>
+        <circle cx="120" cy="118" r="50" fill="#e3ad88"/>
+        <path d="M70 114 C72 74 102 60 124 62 C150 64 170 84 170 114 C158 94 140 86 120 88 C102 90 84 100 70 114Z" fill="#2b2420"/>
+        <g class="eyes" fill="#2b2420">
+          <ellipse cx="102" cy="122" rx="5" ry="6.5"/>
+          <ellipse cx="138" cy="122" rx="5" ry="6.5"/>
+        </g>
+        <path d="M94 108 Q102 103 110 107 M130 107 Q138 103 146 108" fill="none" stroke="#2b2420" stroke-width="3" stroke-linecap="round"/>
+        <circle cx="92" cy="139" r="7" fill="#e8806f" opacity=".45"/>
+        <circle cx="148" cy="139" r="7" fill="#e8806f" opacity=".45"/>
+        <path d="M105 141 Q120 155 135 141" fill="none" stroke="#7a2e22" stroke-width="3.5" stroke-linecap="round"/>
+        <!-- right arm: waves, then comes down to her side -->
+        <g class="arm">
+          <line x1="172" y1="228" x2="207" y2="181" stroke="#2f3a8f" stroke-width="26" stroke-linecap="round"/>
+          <g class="forearm">
+            <line x1="207" y1="181" x2="214" y2="132" stroke="#2f3a8f" stroke-width="24" stroke-linecap="round"/>
+            <circle cx="215" cy="118" r="14" fill="#e3ad88"/>
+          </g>
+        </g>
+      </svg>
+      <div class="name"><b>Maya</b><small>Founder, Indigo Lane</small></div>
+    </div>
     <div class="wrap">
       <div class="badge pop">IL</div>
       <h1 class="pop">Indigo Lane</h1>
@@ -210,6 +271,9 @@ const LINES = [
 ];
 // Seconds per scene, matched to reading the line aloud at a calm pace (VIDEO.md Act 1, 0:00-0:45).
 const DURATION = [8, 10, 9, 7, 8, 5];
+// ?d=8.2,10.1,... sets each scene's length (to match a voice-over); ?rec=1 starts at once with no key help.
+const params = new URLSearchParams(location.search);
+(params.get("d") || "").split(",").map(Number).forEach((v, i) => { if (v > 0 && i < DURATION.length) DURATION[i] = v; });
 // Scenes 2 and 3 share one picture (the post and its comments).
 const SCENE_EL = ["s1", "s2", "s2", "s4", "s5", "s6"];
 
@@ -230,7 +294,7 @@ function popIn(els, start = 0, gap = 250) { els.forEach((el, i) => later(start +
 
 // ---- scene 1: a dotted globe with pins appearing --------------------------------------------
 const globe = document.getElementById("globe");
-const R = 250;
+const R = 220;
 for (let y = -R + 12; y < R; y += 18) {
   for (let x = -R + 12; x < R; x += 18) {
     if (x * x + y * y < R * R) {
@@ -240,7 +304,7 @@ for (let y = -R + 12; y < R; y += 18) {
   }
 }
 const PINS = [[-120, -70], [-40, -130], [60, -90], [150, -20], [-150, 40], [20, 10], [110, 90], [-60, 120], [180, 60], [-10, 170], [80, -170], [-190, -20]];
-PINS.forEach(([x, y]) => { const p = document.createElement("i"); p.className = "pin"; p.style.left = R + x + "px"; p.style.top = R + y + "px"; globe.appendChild(p); });
+PINS.forEach(([x, y]) => { const p = document.createElement("i"); p.className = "pin"; p.style.left = R + x * .88 + "px"; p.style.top = R + y * .88 + "px"; globe.appendChild(p); });
 
 // ---- scenes 2 and 3: comments pouring in ----------------------------------------------------
 const TEXTS = ["hi", "price?", "hi", "😍", "dm", "hi!!", "price pls", "😍😍", "size?", "hi", "how much?", "is M available?", "hii", "🔥", "dm me", "hi", "ship to UK?", "😍", "price?", "hi 👋", "need this", "hi", "cost?", "🙌", "hi"];
@@ -274,8 +338,13 @@ function words(el, text) {
 
 const SCENES = [
   function shop(s) {
-    popIn($$(".pop", s), 200, 450);
-    $$(".pin", s).forEach((p, i) => later(1400 + i * 380, () => p.classList.add("in")));
+    // "This is Maya." She waves in the middle, then steps aside as the shop appears.
+    const maya = $("#maya", s);
+    later(100, () => maya.classList.add("in"));
+    later(1900, () => maya.classList.add("placed"));
+    later(2900, () => globe.classList.add("in"));
+    popIn($$(".pop", s), 2600, 420);
+    $$(".pin", s).forEach((p, i) => later(3400 + i * 330, () => p.classList.add("in")));
   },
   function comments_pour(s) {
     comments.innerHTML = ""; made = 0;
@@ -323,7 +392,7 @@ const SCENES = [
 ];
 
 function reset(sceneEl) {
-  $$(".in", sceneEl).forEach((el) => el.classList.remove("in"));
+  $$(".in, .placed", sceneEl).forEach((el) => el.classList.remove("in", "placed"));
   $$(".c", sceneEl).forEach((el) => el.classList.remove("done", "lost"));
 }
 
@@ -361,6 +430,7 @@ addEventListener("keydown", (e) => {
   else if (k === "h") $("#help").classList.toggle("gone");
 });
 addEventListener("click", () => { if (!started) { started = true; show(0); } });
+if (params.get("rec")) { document.getElementById("help").remove(); started = true; show(0); }
 </script>
 </body>
 </html>
