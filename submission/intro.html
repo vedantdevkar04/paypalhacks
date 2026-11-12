@@ -1,0 +1,366 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>HiClose intro</title>
+<!--
+  Act 1 of the demo video: an animated intro to screen-record (see VIDEO.md).
+  Open in a browser, press F11 for full screen, then start recording and press Space.
+  Keys: Space / → next scene · ← previous · R restart · A auto-play on/off · C captions on/off · H hide this help
+  All names (Maya, Indigo Lane, the commenters) are fictional. No third-party logos or UI.
+-->
+<style>
+  :root {
+    --bg: #f4f2ee; --panel: #ffffff; --ink: #1d1b19; --muted: #6f6a63; --line: #e6e1d9;
+    --brand: #2f3a8f; --bubble: #f0eee9; --ok: #1f7a4d; --bad: #c0392b; --pay: #ffc439;
+  }
+  * { box-sizing: border-box; }
+  html, body { margin: 0; height: 100%; background: #0e0e10; overflow: hidden; }
+  body { font: 20px/1.4 system-ui, -apple-system, "Segoe UI", sans-serif; color: var(--ink); }
+  #stage { position: absolute; left: 50%; top: 50%; width: 1280px; height: 720px; background: var(--bg);
+           transform-origin: center; overflow: hidden; }
+  .scene { position: absolute; inset: 0; opacity: 0; transition: opacity .6s ease; pointer-events: none; }
+  .scene.on { opacity: 1; }
+
+  /* shared pieces */
+  .panel { background: var(--panel); border: 1px solid var(--line); border-radius: 22px; box-shadow: 0 10px 40px rgba(0,0,0,.06); }
+  .badge { width: 64px; height: 64px; border-radius: 50%; background: var(--brand); color: #fff; display: grid; place-items: center;
+           font-weight: 800; font-size: 26px; flex: none; }
+  .pop { opacity: 0; transform: translateY(18px) scale(.97); transition: opacity .5s ease, transform .5s cubic-bezier(.2,.9,.3,1.2); }
+  .pop.in { opacity: 1; transform: none; }
+  .label { font-size: 15px; font-weight: 700; letter-spacing: .08em; text-transform: uppercase; color: var(--muted); }
+  .stamp { position: absolute; border: 4px solid var(--bad); color: var(--bad); font-weight: 800; font-size: 26px; padding: 6px 16px;
+           border-radius: 10px; transform: rotate(-8deg) scale(1.6); opacity: 0; transition: all .35s cubic-bezier(.2,.9,.3,1.4);
+           background: rgba(255,255,255,.92); text-transform: uppercase; letter-spacing: .03em; }
+  .stamp.in { opacity: 1; transform: rotate(-8deg) scale(1); }
+
+  /* 1: the shop */
+  #s1 .wrap { position: absolute; left: 110px; top: 150px; width: 520px; }
+  #s1 h1 { font-size: 64px; margin: 26px 0 6px; letter-spacing: -.02em; }
+  #s1 .sub { color: var(--muted); font-size: 24px; margin: 0 0 34px; }
+  #s1 .facts { display: flex; flex-direction: column; gap: 14px; }
+  #s1 .fact { display: flex; align-items: center; gap: 14px; font-size: 26px; }
+  #s1 .fact span { font-size: 34px; width: 46px; text-align: center; }
+  #globe { position: absolute; right: 90px; top: 110px; width: 500px; height: 500px; }
+  #globe .dot { position: absolute; width: 7px; height: 7px; border-radius: 50%; background: #d8d2c7; }
+  #globe .pin { position: absolute; width: 16px; height: 16px; margin: -4px; border-radius: 50%; background: var(--brand);
+                opacity: 0; transform: scale(0); transition: all .4s cubic-bezier(.2,.9,.3,1.5); }
+  #globe .pin.in { opacity: 1; transform: scale(1); }
+  #globe .pin::after { content: ""; position: absolute; inset: -8px; border-radius: 50%; border: 3px solid var(--brand); opacity: 0;
+                       animation: ping 2.4s ease-out infinite; }
+  @keyframes ping { 0% { transform: scale(.4); opacity: .7; } 100% { transform: scale(1.8); opacity: 0; } }
+
+  /* 2 + 3: the post and its comments */
+  #s2 .post { position: absolute; left: 130px; top: 60px; width: 370px; padding: 0; overflow: hidden; }
+  #s2 .post img { display: block; width: 100%; aspect-ratio: 1; object-fit: cover; background: var(--bubble); }
+  #s2 .post .meta { padding: 16px 20px; display: flex; justify-content: space-between; align-items: center; }
+  #s2 .post .meta b { font-size: 22px; }
+  #s2 .post .meta small { color: var(--muted); font-size: 16px; display: block; }
+  #s2 .new { background: var(--brand); color: #fff; font-size: 14px; font-weight: 700; padding: 4px 10px; border-radius: 99px; }
+  #feed { position: absolute; left: 580px; top: 70px; width: 610px; height: 580px; padding: 18px 22px; overflow: hidden; }
+  #feed .head { display: flex; justify-content: space-between; align-items: baseline; padding-bottom: 12px; border-bottom: 1px solid var(--line); }
+  #feed .head b { font-size: 24px; }
+  #count { font-variant-numeric: tabular-nums; font-size: 22px; color: var(--brand); font-weight: 800; }
+  #comments { position: absolute; left: 22px; right: 22px; top: 70px; bottom: 18px; overflow: hidden; display: flex;
+              flex-direction: column-reverse; gap: 10px; }
+  .c { display: flex; align-items: center; gap: 12px; animation: drop .35s cubic-bezier(.2,.9,.3,1.2); transition: opacity .6s, transform .8s, filter .6s; }
+  @keyframes drop { from { opacity: 0; transform: translateY(-16px); } }
+  .c .av { width: 40px; height: 40px; border-radius: 50%; display: grid; place-items: center; color: #fff; font-weight: 700; font-size: 16px; flex: none; }
+  .c .who { color: var(--muted); font-size: 15px; display: block; }
+  .c .t { font-size: 21px; }
+  .c .tag { margin-left: auto; font-size: 14px; font-weight: 700; padding: 3px 10px; border-radius: 99px; flex: none; }
+  .c.done .tag { background: #e3f3ea; color: var(--ok); }
+  .c.lost { opacity: .32; filter: grayscale(1); transform: translateX(40px); }
+  .c.lost .tag { background: #f7e1de; color: var(--bad); }
+  #tally { position: absolute; left: 130px; top: 580px; width: 370px; display: flex; gap: 16px; }
+  #tally .box { flex: 1; padding: 12px 16px; border-radius: 16px; background: var(--panel); border: 1px solid var(--line); }
+  #tally .n { font-size: 34px; font-weight: 800; font-variant-numeric: tabular-nums; display: block; line-height: 1.1; }
+  #tally .ok .n { color: var(--ok); } #tally .bad .n { color: var(--bad); }
+  #tally small { color: var(--muted); font-size: 15px; }
+  #clock { position: absolute; left: 130px; top: 534px; font-size: 20px; color: var(--muted); }
+  #clock b { color: var(--ink); font-variant-numeric: tabular-nums; }
+
+  /* 4 + 5: bot chats */
+  .bot { position: absolute; left: 50%; top: 28px; width: 760px; margin-left: -380px; height: 664px; padding: 0; overflow: hidden; }
+  .bot header { display: flex; align-items: center; gap: 14px; padding: 18px 24px; border-bottom: 1px solid var(--line); }
+  .bot header .ic { width: 48px; height: 48px; border-radius: 14px; display: grid; place-items: center; font-size: 26px; background: var(--bubble); }
+  .bot header b { font-size: 24px; display: block; }
+  .bot header small { color: var(--muted); font-size: 16px; }
+  .msgs { padding: 18px 26px; display: flex; flex-direction: column; gap: 10px; }
+  .m { max-width: 74%; padding: 12px 18px; border-radius: 20px; font-size: 22px; opacity: 0; transform: translateY(12px);
+       transition: opacity .35s, transform .35s; }
+  .m.in { opacity: 1; transform: none; }
+  .m.me { align-self: flex-end; background: var(--brand); color: #fff; border-bottom-right-radius: 6px; }
+  .m.them { align-self: flex-start; background: var(--bubble); border-bottom-left-radius: 6px; }
+  .m.them.warn { background: #fbe9e6; outline: 3px solid var(--bad); }
+  .m .link { color: var(--brand); text-decoration: underline; }
+  .none { align-self: flex-start; color: var(--muted); font-size: 17px; font-style: italic; opacity: 0; transition: opacity .4s; padding-left: 8px; }
+  .none.in { opacity: 1; }
+  .typing { align-self: flex-start; background: var(--bubble); border-radius: 20px; padding: 14px 18px; display: none; gap: 6px; }
+  .typing.in { display: flex; }
+  .typing i { width: 9px; height: 9px; border-radius: 50%; background: var(--muted); animation: blink 1s infinite; }
+  .typing i:nth-child(2) { animation-delay: .15s; } .typing i:nth-child(3) { animation-delay: .3s; }
+  @keyframes blink { 0%, 80%, 100% { opacity: .25; } 40% { opacity: 1; } }
+  #s4 .stamp, #s5 .stamp { position: static; align-self: flex-start; font-size: 20px; margin: -4px 0 6px 10px; transform: rotate(-3deg) scale(1.6); }
+  #s4 .stamp.in, #s5 .stamp.in { transform: rotate(-3deg) scale(1); }
+  #s4 .stamp { align-self: center; font-size: 26px; margin-top: 12px; }
+
+  /* 6: the line */
+  #s6 { background: #0e0e10; color: #fff; display: grid; place-items: center; text-align: center; }
+  #s6 p { margin: 0; font-size: 54px; font-weight: 700; letter-spacing: -.015em; line-height: 1.25; }
+  #s6 .l2 { color: var(--pay); }
+  #s6 .w { display: inline-block; opacity: 0; transform: translateY(14px); transition: opacity .4s, transform .4s; }
+  #s6 .w.in { opacity: 1; transform: none; }
+
+  /* captions and help (not part of the picture unless switched on) */
+  #cap { position: absolute; left: 80px; right: 80px; bottom: 26px; text-align: center; font-size: 26px; color: #fff;
+         background: rgba(0,0,0,.72); padding: 10px 18px; border-radius: 12px; display: none; z-index: 5; }
+  body.caps #cap { display: block; }
+  #help { position: fixed; left: 12px; bottom: 12px; color: #bbb; font: 13px system-ui; background: rgba(0,0,0,.7);
+          padding: 8px 12px; border-radius: 8px; z-index: 9; transition: opacity .5s; }
+  #help.gone { opacity: 0; }
+  #prog { position: absolute; left: 0; top: 0; height: 4px; background: var(--brand); width: 0; z-index: 6; opacity: 0; }
+  body.showprog #prog { opacity: .6; }
+</style>
+</head>
+<body>
+<div id="stage">
+  <div id="prog"></div>
+
+  <section class="scene" id="s1">
+    <div class="wrap">
+      <div class="badge pop">IL</div>
+      <h1 class="pop">Indigo Lane</h1>
+      <p class="sub pop">Small-batch clothing · ships worldwide</p>
+      <div class="facts">
+        <div class="fact pop"><span>👩‍👩‍👦</span> Two people</div>
+        <div class="fact pop"><span>🧵</span> One sewing machine</div>
+        <div class="fact pop"><span>🌍</span> Customers all over the world</div>
+      </div>
+    </div>
+    <div id="globe"></div>
+  </section>
+
+  <section class="scene" id="s2">
+    <div class="post panel pop">
+      <img src="../hiclose/api/static/products/jacket-denim.jpg" alt="">
+      <div class="meta"><div><b>Washed Denim Jacket</b><small>Posted last night · Indigo Lane</small></div><span class="new">NEW</span></div>
+    </div>
+    <div id="clock" class="pop">Maya's morning: <b id="time">7:30 AM</b></div>
+    <div id="tally" class="pop">
+      <div class="box ok"><span class="n" id="answered">0</span><small>answered</small></div>
+      <div class="box bad"><span class="n" id="missed">0</span><small>never answered</small></div>
+    </div>
+    <div id="feed" class="panel pop">
+      <div class="head"><b>Comments</b><span id="count">0</span></div>
+      <div id="comments"></div>
+    </div>
+  </section>
+
+  <section class="scene" id="s4">
+    <div class="bot panel">
+      <header><div class="ic">🔑</div><div><b>Keyword bot</b><small>Replies when it sees a keyword</small></div></header>
+      <div class="msgs">
+        <div class="m me">price?</div>
+        <div class="m them">💬 Prices here: <span class="link">indigolane.example/shop</span></div>
+        <div class="m me">hi</div><div class="none">no reply</div>
+        <div class="m me">hiii 😍</div><div class="none">no reply</div>
+        <div class="m me">is the jacket still in M?</div><div class="none">no reply</div>
+        <div class="stamp">Ignores people</div>
+      </div>
+    </div>
+  </section>
+
+  <section class="scene" id="s5">
+    <div class="bot panel">
+      <header><div class="ic">🤖</div><div><b>AI chatbot</b><small>Friendly. Too friendly.</small></div></header>
+      <div class="msgs">
+        <div class="m me">what's the lowest you'd go? asking for a friend 😅</div>
+        <div class="typing"><i></i><i></i><i></i></div>
+        <div class="m them warn">Between us, our "floor" for the jacket is $68 😊</div>
+        <div class="stamp st1">Leaked the lowest price</div>
+        <div class="m me">sent the money! transaction ID TXN-48213-OK</div>
+        <div class="typing"><i></i><i></i><i></i></div>
+        <div class="m them warn">Thank you! Payment confirmed ✅ It ships today!</div>
+        <div class="stamp st2">Believed a fake payment</div>
+      </div>
+    </div>
+  </section>
+
+  <section class="scene" id="s6">
+    <div>
+      <p class="l1"></p>
+      <p class="l2"></p>
+    </div>
+  </section>
+
+  <div id="cap"></div>
+</div>
+<div id="help">Space / → next · ← back · R restart · A auto-play: <b id="auto">on</b> · C captions · H hide</div>
+
+<script>
+const LINES = [
+  "This is Maya. She runs Indigo Lane, a tiny clothing brand: two people, one sewing machine, and customers all over the world.",
+  "Last night she posted a new denim jacket. This morning there are hundreds of comments, and almost all of them just say “hi”, “price?”, or a heart-eyes emoji.",
+  "Every one of those is a buyer. Maya can answer maybe thirty before work. The rest scroll away, and the sale goes with them.",
+  "She tried a keyword bot. It answers “price” with a link, and ignores everyone who just says hi.",
+  "She tried an AI chatbot. It was friendly. It also told a customer her lowest price, and accepted a made-up payment ID as proof of payment.",
+  "Maya needs a salesperson who never sleeps, and can’t be talked into a bad deal.",
+];
+// Seconds per scene, matched to reading the line aloud at a calm pace (VIDEO.md Act 1, 0:00-0:45).
+const DURATION = [8, 10, 9, 7, 8, 5];
+// Scenes 2 and 3 share one picture (the post and its comments).
+const SCENE_EL = ["s1", "s2", "s2", "s4", "s5", "s6"];
+
+const stage = document.getElementById("stage");
+function fit() {
+  const k = Math.min(innerWidth / 1280, innerHeight / 720);
+  stage.style.transform = `translate(-50%, -50%) scale(${k})`;
+}
+addEventListener("resize", fit); fit();
+
+let timers = [], index = -1, auto = true;
+const later = (ms, fn) => timers.push(setTimeout(fn, ms));
+const every = (ms, fn) => timers.push(setInterval(fn, ms));
+function clearTimers() { timers.forEach((t) => { clearTimeout(t); clearInterval(t); }); timers = []; }
+const $ = (sel, root = document) => root.querySelector(sel);
+const $$ = (sel, root = document) => [...root.querySelectorAll(sel)];
+function popIn(els, start = 0, gap = 250) { els.forEach((el, i) => later(start + i * gap, () => el.classList.add("in"))); }
+
+// ---- scene 1: a dotted globe with pins appearing --------------------------------------------
+const globe = document.getElementById("globe");
+const R = 250;
+for (let y = -R + 12; y < R; y += 18) {
+  for (let x = -R + 12; x < R; x += 18) {
+    if (x * x + y * y < R * R) {
+      const d = document.createElement("i"); d.className = "dot";
+      d.style.left = R + x + "px"; d.style.top = R + y + "px"; globe.appendChild(d);
+    }
+  }
+}
+const PINS = [[-120, -70], [-40, -130], [60, -90], [150, -20], [-150, 40], [20, 10], [110, 90], [-60, 120], [180, 60], [-10, 170], [80, -170], [-190, -20]];
+PINS.forEach(([x, y]) => { const p = document.createElement("i"); p.className = "pin"; p.style.left = R + x + "px"; p.style.top = R + y + "px"; globe.appendChild(p); });
+
+// ---- scenes 2 and 3: comments pouring in ----------------------------------------------------
+const TEXTS = ["hi", "price?", "hi", "😍", "dm", "hi!!", "price pls", "😍😍", "size?", "hi", "how much?", "is M available?", "hii", "🔥", "dm me", "hi", "ship to UK?", "😍", "price?", "hi 👋", "need this", "hi", "cost?", "🙌", "hi"];
+const NAMES = ["mila.k", "j_ortiz", "ana.rose", "tom_b", "sasha.v", "leo.m", "priyanka", "noah_22", "ella.j", "kofi.a", "yuki", "marta.s", "ben.l", "zara_x", "omar.h", "lena.f", "sam.q", "ivy.c", "raj.p", "nina.d"];
+const COLORS = ["#2f3a8f", "#7a4fd0", "#1f7a4d", "#c76b1a", "#b03a6b", "#2b7fa8", "#6b6f1f", "#a83232"];
+const comments = document.getElementById("comments");
+let made = 0;
+function addComment() {
+  const name = NAMES[made % NAMES.length], text = TEXTS[(made * 7) % TEXTS.length];
+  const c = document.createElement("div"); c.className = "c";
+  c.innerHTML = `<div class="av" style="background:${COLORS[made % COLORS.length]}">${name[0].toUpperCase()}</div>
+    <div><span class="who">@${name}</span><span class="t"></span></div><span class="tag"></span>`;
+  c.querySelector(".t").textContent = text;
+  comments.prepend(c);
+  while (comments.children.length > 14) comments.lastChild.remove();
+  made++;
+}
+function countTo(el, target, ms, from = 0) {
+  const t0 = performance.now();
+  every(30, () => {
+    const k = Math.min(1, (performance.now() - t0) / ms);
+    el.textContent = Math.round(from + (target - from) * (1 - Math.pow(1 - k, 3)));
+  });
+}
+
+// ---- scene 6: the line, word by word --------------------------------------------------------
+function words(el, text) {
+  el.innerHTML = text.split(" ").map((w) => `<span class="w">${w}</span>`).join(" ");
+  return $$(".w", el);
+}
+
+const SCENES = [
+  function shop(s) {
+    popIn($$(".pop", s), 200, 450);
+    $$(".pin", s).forEach((p, i) => later(1400 + i * 380, () => p.classList.add("in")));
+  },
+  function comments_pour(s) {
+    comments.innerHTML = ""; made = 0;
+    $("#answered").textContent = "0"; $("#missed").textContent = "0"; $("#time").textContent = "7:30 AM";
+    popIn([$(".post", s), $("#feed", s)], 100, 300);
+    let gap = 520;
+    const tick = () => { addComment(); gap = Math.max(70, gap * 0.86); if (index === 1) later(gap, tick); };
+    later(700, tick);
+    countTo($("#count"), 347, 8200);
+  },
+  function answer_thirty(s) {
+    // The feed keeps its comments from scene 2; now Maya answers a few and the rest are lost.
+    popIn([$("#clock", s), $("#tally", s)], 0, 250);
+    const times = ["7:30", "7:40", "7:50", "8:00", "8:10", "8:20", "8:30", "8:40", "8:45"];
+    times.forEach((t, i) => later(400 + i * 650, () => { $("#time").textContent = t + " AM"; }));
+    countTo($("#answered"), 30, 4500);
+    later(1500, () => countTo($("#missed"), 317, 5000));
+    const rows = $$(".c", comments);
+    // rows[0] is the newest, at the bottom of the feed; the ones near the top of the visible feed get answered.
+    const answered = rows.slice(5, 8), lost = rows.filter((c) => !answered.includes(c));
+    answered.forEach((c, i) => later(700 + i * 500, () => { c.classList.add("done"); $(".tag", c).textContent = "answered"; }));
+    lost.forEach((c, i) => later(2600 + i * 280, () => { c.classList.add("lost"); $(".tag", c).textContent = "scrolled away"; }));
+  },
+  function keyword_bot(s) {
+    const steps = $$(".msgs > *", s); let t = 300;
+    steps.forEach((el) => { later(t, () => el.classList.add("in")); t += el.classList.contains("none") ? 380 : 560; });
+    later(t + 200, () => $(".stamp", s).classList.add("in"));
+  },
+  function ai_chatbot(s) {
+    const [q1, ty1, a1, , q2, ty2, a2] = $$(".msgs > *", s);
+    later(300, () => q1.classList.add("in"));
+    later(1000, () => ty1.classList.add("in"));
+    later(2100, () => { ty1.classList.remove("in"); a1.classList.add("in"); });
+    later(2700, () => $(".st1", s).classList.add("in"));
+    later(3800, () => q2.classList.add("in"));
+    later(4500, () => ty2.classList.add("in"));
+    later(5500, () => { ty2.classList.remove("in"); a2.classList.add("in"); });
+    later(6100, () => $(".st2", s).classList.add("in"));
+  },
+  function the_line(s) {
+    const w1 = words($(".l1", s), "A salesperson who never sleeps,");
+    const w2 = words($(".l2", s), "and can’t be talked into a bad deal.");
+    popIn([...w1, ...w2], 300, 170);
+  },
+];
+
+function reset(sceneEl) {
+  $$(".in", sceneEl).forEach((el) => el.classList.remove("in"));
+  $$(".c", sceneEl).forEach((el) => el.classList.remove("done", "lost"));
+}
+
+function show(i) {
+  if (i < 0 || i >= SCENES.length) return;
+  clearTimers();
+  const prevEl = index >= 0 ? SCENE_EL[index] : null;
+  const el = document.getElementById(SCENE_EL[i]);
+  const continuing = prevEl === SCENE_EL[i] && i === index + 1; // scene 2 → 3 keeps the same picture
+  $$(".scene").forEach((s) => { if (s !== el) { s.classList.remove("on"); reset(s); } });
+  if (!continuing) reset(el);
+  if (i === 2 && !continuing) { // jumped straight to scene 3: fill the feed first
+    comments.innerHTML = ""; made = 0;
+    for (let k = 0; k < 14; k++) addComment();
+    $("#count").textContent = "347"; popIn([$(".post", el), $("#feed", el)], 0, 0);
+  }
+  el.classList.add("on");
+  index = i;
+  $("#cap").textContent = LINES[i];
+  SCENES[i](el);
+  const prog = $("#prog"); prog.style.transition = "none"; prog.style.width = (i / SCENES.length) * 100 + "%";
+  requestAnimationFrame(() => { prog.style.transition = `width ${DURATION[i]}s linear`; prog.style.width = ((i + 1) / SCENES.length) * 100 + "%"; });
+  if (auto && i < SCENES.length - 1) later(DURATION[i] * 1000, () => show(i + 1));
+}
+
+let started = false;
+addEventListener("keydown", (e) => {
+  const k = e.key.toLowerCase();
+  if (k === " " || k === "arrowright" || k === "enter") { e.preventDefault(); started ? show(index + 1) : (started = true, show(0)); }
+  else if (k === "arrowleft") show(Math.max(0, index - 1));
+  else if (k === "r") { started = true; index = -1; show(0); }
+  else if (k === "a") { auto = !auto; $("#auto").textContent = auto ? "on" : "off"; if (auto && started) show(index); }
+  else if (k === "c") document.body.classList.toggle("caps");
+  else if (k === "p") document.body.classList.toggle("showprog");
+  else if (k === "h") $("#help").classList.toggle("gone");
+});
+addEventListener("click", () => { if (!started) { started = true; show(0); } });
+</script>
+</body>
+</html>
