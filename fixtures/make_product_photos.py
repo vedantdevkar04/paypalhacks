@@ -1,17 +1,18 @@
-"""Draws the demo shop's product photos: flat illustrations we made ourselves, so we own them.
-Run once after changing the catalog (needs Pillow, which the app itself doesn't):
+"""Draws flat illustrations of the demo shop's products. The shop now uses free-licence photos from
+Unsplash instead (see CREDITS.md), so this writes to a separate folder and never overwrites them.
+Run it only if you want the drawn versions back (needs Pillow, which the app itself doesn't):
 
     pip install pillow
     python fixtures/make_product_photos.py
 
-Writes JPEGs to hiclose/api/static/products/, which the app serves at /products/<file>.
+Writes JPEGs to hiclose/api/static/products/drawn/. To use them, copy them up one folder.
 WhatsApp only accepts JPEG or PNG, so these are not SVG."""
 
 from pathlib import Path
 
 from PIL import Image, ImageDraw, ImageFont
 
-OUT = Path(__file__).resolve().parents[1] / "hiclose" / "api" / "static" / "products"
+OUT = Path(__file__).resolve().parents[1] / "hiclose" / "api" / "static" / "products" / "drawn"
 S = 1600  # drawn at 2x, then downscaled for smooth edges
 FONT = "C:/Windows/Fonts/georgia.ttf"
 

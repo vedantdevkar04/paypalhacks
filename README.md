@@ -193,4 +193,6 @@ fixtures/           the demo shop "Indigo Lane" (a fictional brand)
 
 ## License
 
+Product photos are from Unsplash, under the Unsplash License; see [CREDITS.md](CREDITS.md).
+
 MIT. See [LICENSE](LICENSE).
