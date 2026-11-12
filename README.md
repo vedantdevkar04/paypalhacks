@@ -50,7 +50,7 @@ leak the owner's lowest price, or believe a fake payment screenshot.
    and use a PayPal sandbox test card.
 5. Back in the chat, the shop posts **"Paid ✅"**. Open the **owner dashboard** to see the order.
 
-**Sandbox buyer for judges:** `<email>` / `<password>`. This is a PayPal sandbox test account with
+**Sandbox buyer for judges:** `sb-nnxyh53773803@personal.example.com` / `j^0/ufVi`. This is a PayPal sandbox test account with
 fake money.
 
 ---
