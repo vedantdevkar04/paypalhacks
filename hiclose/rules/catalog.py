@@ -1,11 +1,25 @@
 """What the shop sells, and the owner's limits. The floor price never leaves this module's
 private side: the agent only ever sees `Product.public()`."""
 
+import hashlib
 import json
 from dataclasses import dataclass, field
+from functools import lru_cache
 from pathlib import Path
 
 from hiclose.rules.negotiation import Policy
+
+PHOTO_DIR = Path(__file__).resolve().parents[1] / "api" / "static" / "products"
+
+
+@lru_cache(maxsize=64)
+def photo_url(image: str) -> str:
+    """The site path of a product photo, tagged with a short hash of the file, so a browser that saw
+    an older photo under the same name fetches the new one."""
+    path = PHOTO_DIR / image
+    if not path.is_file():
+        return f"/products/{image}"
+    return f"/products/{image}?v={hashlib.md5(path.read_bytes()).hexdigest()[:8]}"
 
 
 class CatalogError(Exception):

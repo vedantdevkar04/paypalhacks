@@ -10,6 +10,7 @@ from hiclose.agent.tryon import TryOnFailed, TryOnStudio
 from hiclose.agent.llm import ToolCall, ToolSpec
 from hiclose.agent.money import fmt, parse_amount
 from hiclose.rules import Catalog, CatalogError, Quote, QuoteBook, decide
+from hiclose.rules.catalog import photo_url
 
 
 @dataclass(frozen=True)
@@ -151,7 +152,7 @@ class ShopTools:
         product = self._shop.catalog.get(product_id)
         if not product.image:
             return {"ok": False, "error": "no photo for this product; describe it in words instead"}
-        self.image_url = f"/products/{product.image}"
+        self.image_url = photo_url(product.image)
         return {"ok": True, "say": "The photo is attached to your reply. Don't describe it as a link."}
 
     def _identify_photo(self) -> dict:

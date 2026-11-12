@@ -234,7 +234,7 @@ def test_each_customer_has_their_own_negotiation():
 def test_photo_comes_from_the_catalog_by_product_id():
     agent, _, _ = agent_with([call("show_photo", product_id="jacket-denim"), say("Here it is! $80, sizes M and L.")])
     reply = agent.handle("web:riya", "can I see it?")
-    assert reply.image_url == "/products/jacket-denim.jpg"
+    assert reply.image_url.startswith("/products/jacket-denim.jpg?v=")
     assert "show_photo" in reply.tools_used
 
 

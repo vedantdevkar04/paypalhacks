@@ -223,8 +223,8 @@ def test_chat_page_is_served():
 def test_product_photos_are_served_and_reach_the_web_transcript():
     client, *_ = build([call("show_photo", product_id="scarf-silk"), say("Here's the indigo scarf!")])
     posts = client.get("/api/shop").json()["posts"]
-    assert posts[0]["image_url"] == "/products/jacket-denim.jpg"
-    photo = client.get("/products/jacket-denim.jpg")
+    assert posts[0]["image_url"].startswith("/products/jacket-denim.jpg?v=")
+    photo = client.get(posts[0]["image_url"])
     assert photo.status_code == 200 and photo.headers["content-type"] == "image/jpeg"
     client.post("/api/chat", json={"customer_id": "riya", "text": "show me the scarf"})
-    assert transcript(client)[-1]["image_url"] == "/products/scarf-silk.jpg"
+    assert transcript(client)[-1]["image_url"].startswith("/products/scarf-silk.jpg?v=")

@@ -25,6 +25,7 @@ from hiclose.logistics import DispatchBoard, DispatchError
 from hiclose.market import Channel3Client, PhotoMatcher, market_report
 from hiclose.paypal import PayPalError, PayPalWebhooks
 from hiclose.rules import CatalogError
+from hiclose.rules.catalog import photo_url
 
 ROOT = Path(__file__).resolve().parents[2]
 STATIC = Path(__file__).parent / "static"
@@ -134,7 +135,7 @@ def create_app(
                     "name": product.name,
                     "description": product.description,
                     "price": fmt(product.list_cents, product.currency),
-                    "image_url": f"/products/{product.image}" if product.image else None,
+                    "image_url": photo_url(product.image) if product.image else None,
                     "sizes_in_stock": view["sizes_in_stock"],
                 })
         shop = service.shop
