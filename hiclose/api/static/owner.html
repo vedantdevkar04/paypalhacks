@@ -57,7 +57,7 @@
   <section class="card">
     <h2>Market prices (Channel3)</h2>
     <div class="grid" id="market" style="height:260px"></div>
-    <p class="note" id="marketNote">What similar items sell for at other stores, to help you set your list and lowest prices.
+    <p class="note" id="marketNote">What similar items typically sell for at other stores (the middle half of prices: the cheapest and priciest quarter are left out), to help you set your list and lowest prices.
       Only you see this: the sales agent never uses these numbers.</p>
   </section>
 </main>
@@ -102,9 +102,9 @@ const market = agGrid.createGrid($("market"), {
   columnDefs: [
     { field: "product", headerName: "Our product", flex: 1, minWidth: 170 },
     { field: "our_price", headerName: "Our price", width: 105 },
-    { field: "low", headerName: "Market low", width: 110 },
+    { field: "low", headerName: "Typical low", width: 115 },
     { field: "median", headerName: "Median", width: 100 },
-    { field: "high", headerName: "Market high", width: 115 },
+    { field: "high", headerName: "Typical high", width: 120 },
     { field: "status", headerName: "Position", width: 135, cellStyle: positionStyle },
     { field: "compared", headerName: "Compared", width: 105 },
     { field: "examples", headerName: "Similar items", flex: 1.6, minWidth: 260, sortable: false, tooltipValueGetter: (p) => p.valueFormatted,

@@ -105,7 +105,7 @@ It works in a web chat that anyone can try and on WhatsApp.
   the shop's own "Paid ✅" message. Payments are confirmed by verified webhooks.
 - **No path to money that bypasses code.** It's in the architecture, not in a prompt asking the
   model to behave.
-- **204 automated tests**, plus a benchmark anyone can re-run.
+- **205 automated tests**, plus a benchmark anyone can re-run.
 
 ## What we learned
 

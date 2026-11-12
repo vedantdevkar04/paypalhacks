@@ -86,11 +86,20 @@ def test_market_report_places_our_price_against_similar_items():
     fake = FakeChannel3({"jacket": JACKETS, "tote": [product("Canvas Tote", p, "Bags > Totes") for p in (12, 15, 18, 22)]})
     rows = {r["product_id"]: r for r in market_report(fake.client(), make_shop().catalog)}
     jacket = rows["jacket-denim"]
-    assert (jacket["our_price"], jacket["low"], jacket["median"], jacket["high"]) == ("$80", "$58", "$74.50", "$98")
-    assert jacket["status"] == "in line" and jacket["compared"] == 6
+    # the middle half of $58-$98: the cheapest and priciest are trimmed
+    assert (jacket["our_price"], jacket["low"], jacket["median"], jacket["high"]) == ("$80", "$64", "$74.50", "$88")
+    assert jacket["status"] == "in line" and jacket["compared"] == 6 and jacket["trimmed"] == 2
     assert rows["tote-canvas"]["status"] == "above market"     # our $32 vs $12-$22
     assert rows["scarf-silk"]["status"] == "no matches"         # nothing came back
-    assert jacket["examples"][0] == {"title": "Trucker Jacket", "brand": "Acme", "store": "shop.example", "price": "$58"}
+    assert jacket["examples"][0] == {"title": "Trucker Jacket", "brand": "Acme", "store": "shop.example", "price": "$79"}  # nearest our $80
+
+
+def test_luxury_outliers_dont_make_us_look_cheap():
+    prices = [55, 60, 70, 75, 80, 85, 95, 990]  # one $990 designer jacket
+    fake = FakeChannel3({"jacket": [product(f"Jacket {p}", p) for p in prices]})
+    jacket = {r["product_id"]: r for r in market_report(fake.client(), make_shop().catalog)}["jacket-denim"]
+    assert jacket["high"] == "$85" and jacket["status"] == "in line"
+    assert all(e["price"] != "$990" for e in jacket["examples"])
 
 
 def test_market_report_ignores_other_currencies():

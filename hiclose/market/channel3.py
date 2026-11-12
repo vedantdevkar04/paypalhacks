@@ -131,12 +131,16 @@ def market_report(client: Channel3Client, catalog) -> list[dict]:
         if not prices:
             rows.append({**row, "status": "no matches", "compared": 0})
             continue
-        low, high, median = prices[0], prices[-1], round(statistics.median(prices))
-        q1, q3 = (statistics.quantiles(prices, n=4)[0], statistics.quantiles(prices, n=4)[2]) if len(prices) >= 4 else (low, high)
-        position = "below market" if product.list_cents < q1 else "above market" if product.list_cents > q3 else "in line"
-        examples = [i for i in items if i.price_cents and i.currency == product.currency][:3]
+        # The middle half of prices: drops the cheapest and priciest quarter (luxury labels, knock-offs),
+        # so low / median / high describe a typical store rather than the extremes.
+        cut = len(prices) // 4 if len(prices) >= 4 else 0
+        typical = prices[cut:len(prices) - cut]
+        low, high, median = typical[0], typical[-1], round(statistics.median(typical))
+        position = "below market" if product.list_cents < low else "above market" if product.list_cents > high else "in line"
+        same = [i for i in items if i.price_cents and i.currency == product.currency and low <= i.price_cents <= high]
+        examples = sorted(same, key=lambda i: abs(i.price_cents - product.list_cents))[:3]  # nearest to our price
         rows.append({
-            **row, "status": position, "compared": len(prices),
+            **row, "status": position, "compared": len(prices), "trimmed": len(prices) - len(typical),
             "low": fmt(low, product.currency), "median": fmt(median, product.currency), "high": fmt(high, product.currency),
             "median_cents": median,
             "examples": [{"title": i.title, "brand": i.brand, "store": i.domain, "price": fmt(i.price_cents, product.currency)}

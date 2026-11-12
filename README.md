@@ -168,7 +168,7 @@ python -m venv .venv
 .venv\Scripts\activate          # macOS/Linux: source .venv/bin/activate
 pip install -r requirements.txt
 copy .env.example .env          # then fill in PayPal sandbox, Gemini and (optional) Twilio keys
-python -m pytest -q             # 204 tests, no network needed
+python -m pytest -q             # 205 tests, no network needed
 uvicorn hiclose.api.app:create_default_app --factory --port 8000
 ```
 
