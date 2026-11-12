@@ -15,3 +15,7 @@ submission/*.mp4
 submission/*.m4a
 submission/*.wav
 submission/*.mp3
+submission/_full_video/
+submission/_act1_lines.json
+submission/_kit/
+submission/_full_video_log.txt

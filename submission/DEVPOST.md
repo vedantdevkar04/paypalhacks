@@ -19,7 +19,7 @@ talked into a bad price or a fake payment. Payments by PayPal.
 - Owner dashboard: https://hiclose.onrender.com/owner
 - Dispatch board: https://hiclose.onrender.com/dispatch
 - Code: https://github.com/vedantdevkar04/paypalhacks (MIT)
-- Video: `<YouTube link>`
+- Video: https://youtu.be/wIYPwqCPjMM
 
 ---
 

@@ -12,7 +12,7 @@ no real money moves.
 | 📊 Owner dashboard | **https://hiclose.onrender.com/owner** |
 | 🚚 Dispatch board | **https://hiclose.onrender.com/dispatch** |
 | 💬 WhatsApp | Send `join introduced-abroad` to **+1 415 523 8886**, then say "hi" |
-| 🎬 Demo video | `<YouTube link>` |
+| 🎬 Demo video | https://youtu.be/wIYPwqCPjMM |
 
 The free server sleeps when idle: the first visit can take ~50 seconds to wake it.
 
