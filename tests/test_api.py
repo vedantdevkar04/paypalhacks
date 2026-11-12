@@ -62,7 +62,7 @@ def test_shop_lists_every_post_without_floor_prices():
     client, *_ = build([])
     data = client.get("/api/shop").json()
     assert data["brand"] == "Indigo Lane"
-    assert [p["post_id"] for p in data["posts"]] == ["post-001", "post-002", "post-003", "post-004", "post-005"]
+    assert [p["post_id"] for p in data["posts"]] == ["post-001", "post-002", "post-003", "post-005"]  # one card per product
     assert "6800" not in str(data) and "floor" not in str(data)
 
 

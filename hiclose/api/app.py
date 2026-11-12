@@ -128,7 +128,9 @@ def create_app(
         posts = []
         for product in catalog.products():
             view = catalog.public(product.product_id)
-            for post_id in product.post_ids:
+            # One card per product on the shop page. A product can have more posts (the benchmark
+            # comments on a second scarf post); those still map to the product in the catalog.
+            for post_id in product.post_ids[:1]:
                 posts.append({
                     "post_id": post_id,
                     "product_id": product.product_id,
