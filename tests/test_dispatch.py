@@ -9,7 +9,7 @@ from hiclose.api.app import create_app
 from hiclose.api.service import HiCloseService
 from hiclose.channels import WebChannel
 from hiclose.logistics import DispatchBoard, DispatchError
-from tests.fakes import FakeModel, make_shop
+from tests.fakes import FakeModel, call, make_shop, say
 from tests.test_api import FakePayments
 
 FIXTURE = Path(__file__).parent.parent / "fixtures" / "logistics.json"
@@ -96,13 +96,13 @@ def test_unknown_shipment_is_an_error(board):
         board.assign("S-999", "d-sam", at("12:00"))
 
 
-def build():
+def build(script=()):
     shop = make_shop()
     payments = FakePayments()
     shop.checkout = payments
     web = WebChannel()
     board = DispatchBoard.from_json(FIXTURE, day=DAY)
-    service = HiCloseService(SalesAgent(FakeModel([]), shop, ConversationStore()), shop, payments, {"web": web}, dispatch=board)
+    service = HiCloseService(SalesAgent(FakeModel(list(script)), shop, ConversationStore()), shop, payments, {"web": web}, dispatch=board)
     return TestClient(create_app(service, web)), service, board
 
 
@@ -170,3 +170,27 @@ def test_board_runs_on_the_shops_timezone_not_the_servers_clock(monkeypatch):
 def test_timezone_can_be_changed(monkeypatch):
     monkeypatch.setenv("SHOP_TIMEZONE", "Asia/Kolkata")
     assert DispatchBoard.from_json(FIXTURE, day=DAY).view()["timezone"] == "Asia/Kolkata"
+
+
+def test_giving_a_paid_order_a_driver_adds_tracking_to_paypal_and_tells_the_buyer():
+    client, service, board = build([call("checkout", product_id="tote-canvas", size="ONE"), say("Here's your checkout for $32")])
+    client.post("/api/chat", json={"customer_id": "riya", "text": "I'll take the tote"})
+    assert client.get("/checkout/return", params={"token": "ORD-1"}).status_code == 200
+    [shipment] = [s for s in board.shipments.values() if s.order_id == "ORD-1"]
+    assert shipment.tracking_number is None  # no driver yet, nothing sent to PayPal
+    client.post("/api/dispatch/auto")
+    assert shipment.driver_id and shipment.tracking_number == f"IL{shipment.shipment_id.replace('-', '')}ORD-1"
+    assert service.payments.tracked == [("ORD-1", shipment.tracking_number, "Indigo Lane Delivery")]
+    last = client.get("/api/chat/riya/messages").json()["messages"][-1]["text"]
+    assert "on its way" in last and shipment.tracking_number in last and "PayPal" in last
+    view = client.get("/api/dispatch").json()
+    assert any(e["tracking"] == shipment.tracking_number for e in view["events"])
+    assert client.get("/api/owner").json()["orders"][0]["tracking"] == shipment.tracking_number
+    client.post("/api/dispatch/auto")  # running again doesn't re-send
+    assert len(service.payments.tracked) == 1
+
+
+def test_seed_shipments_without_an_order_never_call_paypal():
+    client, service, _ = build()
+    client.post("/api/dispatch/auto")
+    assert getattr(service.payments, "tracked", []) == []

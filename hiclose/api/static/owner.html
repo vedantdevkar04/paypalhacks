@@ -92,6 +92,7 @@ const orders = agGrid.createGrid($("orders"), {
     { field: "price", headerName: "Sold at", width: 100 },
     { field: "status", headerName: "Status", width: 110, cellStyle: (p) => (p.value === "PAID" ? { color: "#1f7a4d", fontWeight: 600 } : null) },
     { field: "ships_to", headerName: "Ships to", width: 150 },
+    { field: "tracking", headerName: "Tracking (in PayPal)", width: 190 },
   ],
 });
 

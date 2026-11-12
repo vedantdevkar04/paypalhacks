@@ -74,6 +74,7 @@ class Shipment:
     driver_id: str | None = None
     start: datetime | None = None
     order_id: str | None = None  # set when the shipment came from a paid PayPal order
+    tracking_number: str | None = None  # sent to PayPal once the shipment has a driver
 
     @property
     def duration(self) -> timedelta:
@@ -297,6 +298,7 @@ class DispatchBoard:
                 "parcels": s.parcels, "kg": s.grams / 1000, "warehouse": self.warehouses[s.warehouse_id].name,
                 "warehouseId": s.warehouse_id, "readyAt": iso(s.ready_at), "dueBy": iso(s.due_by),
                 "fromOrder": bool(s.order_id), "assigned": s.driver_id is not None,
+                "tracking": s.tracking_number,
             })
         warehouses = []
         for w in self.warehouses.values():

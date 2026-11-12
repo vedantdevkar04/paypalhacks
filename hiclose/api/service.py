@@ -158,6 +158,35 @@ class HiCloseService:
         text += f". Order {record.order_id}" + (f", shipping to {place}." if place else ".") + " Thank you! 💛"
         await self._send(OutgoingMessage(owner[0], owner[1], text))
 
+    async def ship_assigned(self) -> list[str]:
+        """Every paid order whose shipment now has a driver gets its tracking number added to the PayPal
+        order (the buyer sees it in PayPal), and the customer is told in the chat. Runs once per order."""
+        add_tracking = getattr(self.payments, "add_tracking", None)
+        if self.dispatch is None or add_tracking is None:
+            return []
+        shipped = []
+        for shipment in list(self.dispatch.shipments.values()):
+            if not shipment.order_id or shipment.driver_id is None or shipment.tracking_number:
+                continue
+            number = f"IL{shipment.shipment_id.replace('-', '')}{shipment.order_id[-6:]}"
+            try:
+                record = await asyncio.to_thread(add_tracking, shipment.order_id, number, f"{self.shop.brand} Delivery")
+            except Exception as error:
+                log.warning("couldn't add tracking to PayPal order %s: %s", shipment.order_id, error)
+                continue
+            shipment.tracking_number = record.tracking_number
+            self.stats.log("tracking", order=shipment.order_id, shipment=shipment.shipment_id)
+            shipped.append(shipment.order_id)
+            owner = self._order_owner.get(shipment.order_id)
+            if owner:
+                product = self.shop.catalog.get(record.quote.product_id)
+                when = shipment.start.strftime("%I:%M %p").lstrip("0") if shipment.start else ""
+                text = (f"Your {product.name} is on its way 🚚 Out for delivery"
+                        f"{' at ' + when if when else ''}. Tracking number {record.tracking_number}: "
+                        f"it's in your PayPal account too.")
+                await self._send(OutgoingMessage(owner[0], owner[1], text))
+        return shipped
+
     def release_expired(self, now: datetime | None = None) -> list[str]:
         """Unpaid checkouts past their 15-minute hold give their item back to stock."""
         now = now or datetime.now(timezone.utc)
@@ -206,6 +235,7 @@ class HiCloseService:
                 "price": fmt(quote.price_cents, quote.currency),
                 "list_price": fmt(self.shop.catalog.get(quote.product_id).list_cents, quote.currency),
                 "status": record.status,
+                "tracking": getattr(record, "tracking_number", None) or "",
                 "ships_to": ", ".join(p for p in (address.get("admin_area_2"), address.get("country_code")) if p),
             })
         rows = [

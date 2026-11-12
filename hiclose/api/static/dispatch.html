@@ -108,7 +108,8 @@ function load(data, first = false) {
           template: ({ eventRecord: e }) => StringHelper.xss`
             <b>${e.name}</b><br>
             ${e.parcels} parcels · ${e.kg} kg from ${e.warehouse}<br>
-            Packed by ${hm(e.readyAt)} · deliver by ${hm(e.dueBy)}` + (e.fromOrder ? "<br>From a paid PayPal order" : ""),
+            Packed by ${hm(e.readyAt)} · deliver by ${hm(e.dueBy)}` + (e.fromOrder ? "<br>From a paid PayPal order" : "") +
+            (e.tracking ? `<br>Tracking ${e.tracking}, added to the PayPal order` : (e.fromOrder ? "<br>Give it a driver to add tracking to PayPal" : "")),
         },
       },
       eventRenderer({ eventRecord: e }) {

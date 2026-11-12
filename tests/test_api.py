@@ -31,6 +31,12 @@ class FakePayments:
             record.ship_to = {"address": {"admin_area_2": "San Jose", "admin_area_1": "CA", "country_code": "US"}}
         return record
 
+    def add_tracking(self, order_id, tracking_number, carrier_name):
+        record = self._orders[order_id]
+        self.tracked = getattr(self, "tracked", []) + [(order_id, tracking_number, carrier_name)]
+        record.tracking_number = record.tracking_number or tracking_number
+        return record
+
     def cancel(self, order_id):
         record = self._orders.get(order_id)
         if record and record.status == "CREATED":
@@ -194,7 +200,7 @@ def test_owner_dashboard_shows_the_funnel_chats_and_orders():
     stages = {c["customer"]: c["stage"] for c in data["chats"]}
     assert stages == {"Web riya": "paid", "Web tom": "chatting"}
     assert data["orders"] == [{"order_id": "ORD-1", "product": "Washed Denim Jacket", "size": "M", "price": "$70",
-                               "list_price": "$80", "status": "PAID", "ships_to": "San Jose, US"}]
+                               "list_price": "$80", "status": "PAID", "tracking": "", "ships_to": "San Jose, US"}]
     assert client.get("/owner").status_code == 200
 
 

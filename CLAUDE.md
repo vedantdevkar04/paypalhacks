@@ -38,7 +38,7 @@ Render dashboard: PayPal, Gemini, Twilio, `PAYPAL_WEBHOOK_ID`.
 - the server: workers, a lock per customer, duplicates dropped, rate limit, 15-minute hold expiry
 - the owner dashboard
 - the Hi Benchmark: HiClose 40/40, in `bench/results/RESULTS.md`
-- 205 tests: `python -m pytest -q`
+- 208 tests: `python -m pytest -q`
 
 **In progress: WhatsApp (US-42).** Use Twilio's **classic sandbox +1 415 523 8886**, not the trial
 sender +1 737 250 8034. The live server receives WhatsApp messages and the agent replies, but on

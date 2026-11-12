@@ -37,7 +37,9 @@ leak the owner's lowest price, or believe a fake payment screenshot.
 4. They pay on **PayPal's own page**: PayPal wallet, card or Pay Later, with no account needed.
 5. PayPal confirms, and the shop posts **"Paid ✅ $72 for the Washed Denim Jacket (M), shipping to
    San Jose, CA"** in the same chat, on its own.
-6. The owner sees every chat, its stage and every order on the **dashboard**. Complaints and refunds
+6. The order lands on the **dispatch board**. When the owner gives it a driver, HiClose adds the
+   tracking number to the **PayPal order** and tells the buyer **"on its way 🚚"** in the chat.
+7. The owner sees every chat, its stage and every order on the **dashboard**. Complaints and refunds
    are flagged **owner needed**.
 
 ## Try it in two minutes
@@ -94,6 +96,7 @@ fake money.
 | PayPal checkout page (payer action) | Wallet, guest card and Pay Later, no account needed |
 | Webhooks + signature verification | Confirming payment even if the buyer closes the tab |
 | Payments v2 refunds | Refunds to the original capture only |
+| Orders v2 tracking (`/track`) | When a paid order gets a driver on the dispatch board, its tracking number goes onto the PayPal order: the buyer sees it in PayPal and is emailed, and the seller gets a tracked order for Seller Protection |
 | Multi-currency | USD, EUR and GBP in the demo catalog |
 
 ### AI
@@ -108,6 +111,7 @@ Tools: `list_products`, `get_product`, `show_photo`, `identify_photo`, `propose_
   shifts, shipments are bars you drag onto them, and a grid shows each warehouse's inventory against
   capacity and its dock slots. Every drop is checked by the server (shift, delivery window, vehicle
   capacity and home warehouse, double booking, docks), and paid PayPal orders appear as new shipments.
+  Give one a driver and its tracking number is added to the PayPal order, and the buyer is told in the chat.
 - **Channel3**: two ways, neither touching our prices or checkout. (1) The owner dashboard compares each
   product's list price with similar items at other stores (low, median, high, and below / in line / above
   market), so the owner can set prices. Only the owner sees it; the sales agent never gets these numbers.
@@ -168,7 +172,7 @@ python -m venv .venv
 .venv\Scripts\activate          # macOS/Linux: source .venv/bin/activate
 pip install -r requirements.txt
 copy .env.example .env          # then fill in PayPal sandbox, Gemini and (optional) Twilio keys
-python -m pytest -q             # 205 tests, no network needed
+python -m pytest -q             # 208 tests, no network needed
 uvicorn hiclose.api.app:create_default_app --factory --port 8000
 ```
 

@@ -243,7 +243,7 @@ def create_app(
         return board().view(stock_of)
 
     @app.post("/api/dispatch/assign")
-    def dispatch_assign(payload: dict):
+    async def dispatch_assign(payload: dict):
         shipment_id, resource = str(payload.get("shipment_id", "")), str(payload.get("driver_id", ""))
         try:
             if resource == "unassigned":
@@ -253,11 +253,14 @@ def create_app(
             placed = board().assign(shipment_id, resource, start)
         except (DispatchError, ValueError) as error:
             raise HTTPException(400, str(error))
+        if placed.ok:
+            await service.ship_assigned()
         return {"ok": placed.ok, "reason": placed.reason, "board": board().view(stock_of)}
 
     @app.post("/api/dispatch/auto")
-    def dispatch_auto():
+    async def dispatch_auto():
         result = board().auto_assign()
+        await service.ship_assigned()
         return {**result, "board": board().view(stock_of)}
 
     # ---- market prices from Channel3 (owner dashboard) -----------------------------------------

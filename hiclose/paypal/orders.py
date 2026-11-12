@@ -31,6 +31,7 @@ class OrderRecord:
     payer_email: str | None = None
     ship_to: dict | None = None
     refunded_cents: int = 0
+    tracking_number: str | None = None
 
 
 class OrderBook:
@@ -146,6 +147,24 @@ class PayPalCheckout:
         record.refunded_cents += cents
         if record.refunded_cents == record.quote.price_cents:
             record.status = "REFUNDED"
+        return record
+
+
+    def add_tracking(self, order_id: str, tracking_number: str, carrier_name: str) -> OrderRecord:
+        """Adds the shipment's tracking number to the PayPal order (Orders v2 /track). The buyer sees it in
+        their PayPal account and is emailed, and a tracked order counts towards PayPal Seller Protection."""
+        record = self._orders.get(order_id)
+        if record is None or record.status != "PAID" or not record.capture_id:
+            raise PayPalError(409, {"name": "NOT_SHIPPABLE", "message": f"{order_id} is not a paid order"})
+        if record.tracking_number:
+            return record
+        self._client.request(
+            "POST", f"/v2/checkout/orders/{order_id}/track",
+            json={"capture_id": record.capture_id, "tracking_number": tracking_number,
+                  "carrier": "OTHER", "carrier_name_other": carrier_name, "notify_payer": True},
+            request_id=f"track-{order_id}",
+        )
+        record.tracking_number = tracking_number
         return record
 
 

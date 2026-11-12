@@ -49,6 +49,8 @@ class FakePayPal:
             return httpx.Response(200, json=self._captured())
         if path.startswith("/v2/payments/captures/"):
             return httpx.Response(201, json={"id": "REF1", "status": "COMPLETED"})
+        if path.endswith("/track"):
+            return httpx.Response(201, json={"id": "ORD1", "status": "COMPLETED"})
         if path == "/v1/notifications/verify-webhook-signature":
             return httpx.Response(200, json={"verification_status": "SUCCESS" if self.signature_ok else "FAILURE"})
         return httpx.Response(404, json={"name": "NOT_FOUND"})
@@ -212,3 +214,19 @@ def test_duplicate_webhook_is_handled_once():
 def test_amounts_convert_both_ways(cents, currency, value):
     assert to_value(cents, currency) == value
     assert to_cents(value, currency) == cents
+
+
+def test_tracking_goes_to_the_paid_order_once_with_its_capture():
+    fake, _, checkout = setup()
+    order = checkout.create_checkout(quote())
+    with pytest.raises(PayPalError):  # nothing to ship before it's paid
+        checkout.add_tracking(order.order_id, "IL1", "Indigo Lane Delivery")
+    checkout.confirm(order.order_id)
+    record = checkout.add_tracking(order.order_id, "ILP001ORD1", "Indigo Lane Delivery")
+    method, path, headers, body = fake.calls[-1]
+    assert (method, path) == ("POST", "/v2/checkout/orders/ORD1/track")
+    assert body == {"capture_id": "CAP1", "tracking_number": "ILP001ORD1", "carrier": "OTHER",
+                    "carrier_name_other": "Indigo Lane Delivery", "notify_payer": True}
+    assert headers["paypal-request-id"] == "track-ORD1" and record.tracking_number == "ILP001ORD1"
+    checkout.add_tracking(order.order_id, "ILP001ORD1", "Indigo Lane Delivery")
+    assert fake.paths().count("/v2/checkout/orders/ORD1/track") == 1

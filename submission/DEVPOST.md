@@ -49,7 +49,9 @@ customer means, negotiates within the owner's rules, and closes the sale in the 
 4. They pay on PayPal's own page: wallet, card or Pay Later, with no account needed.
 5. PayPal confirms, and the shop posts **"Paid ✅ $72 for the Washed Denim Jacket (M), shipping to
    San Jose, CA"** by itself.
-6. The owner sees every conversation, its stage and every order on a live dashboard. Complaints and
+6. The order lands on the dispatch board. When the owner gives it a driver, HiClose adds the tracking
+   number to the PayPal order, so the buyer sees it in PayPal, and tells them "on its way 🚚" in the chat.
+7. The owner sees every conversation, its stage and every order on a live dashboard. Complaints and
    refunds are flagged for the owner.
 
 It works in a web chat that anyone can try and on WhatsApp.
@@ -68,7 +70,8 @@ It works in a web chat that anyone can try and on WhatsApp.
 - **A guardrail checks every reply** before it's sent. Any amount or percentage that no tool
   returned, or any piece of the agent's own instructions, sends the reply back for a rewrite.
 - **PayPal:** Orders v2 create and capture with idempotency keys, the PayPal checkout page (wallet,
-  guest card, Pay Later), webhooks verified with PayPal, and refunds to the original capture only.
+  guest card, Pay Later), webhooks verified with PayPal, refunds to the original capture only, and
+  tracking numbers added to the PayPal order (Orders v2 `/track`) once a shipment has a driver.
   An order is marked paid only when PayPal reports a completed capture for exactly the quoted
   amount and currency.
 - **A FastAPI server** with a bounded worker pool and one lock per customer, so many chats run at
@@ -80,7 +83,8 @@ It works in a web chat that anyone can try and on WhatsApp.
 - **Channel3** for market prices on the owner dashboard (what similar items sell for elsewhere) and for
   matching a customer's photo to our closest product.
 - **A dispatch board** built on **Bryntum Scheduler**: warehouses, vans, driver shifts and shipments for the day.
-  Drag a shipment onto a driver and HiClose checks the move; paid PayPal orders show up as shipments to the PayPal address's city.
+  Drag a shipment onto a driver and HiClose checks the move; paid PayPal orders show up as shipments to the PayPal address's city,
+  and giving one a driver sends its tracking number to PayPal.
 
 ## Challenges we ran into
 
@@ -105,7 +109,7 @@ It works in a web chat that anyone can try and on WhatsApp.
   the shop's own "Paid ✅" message. Payments are confirmed by verified webhooks.
 - **No path to money that bypasses code.** It's in the architecture, not in a prompt asking the
   model to behave.
-- **205 automated tests**, plus a benchmark anyone can re-run.
+- **208 automated tests**, plus a benchmark anyone can re-run.
 
 ## What we learned
 
@@ -120,7 +124,8 @@ It works in a web chat that anyone can try and on WhatsApp.
 
 - Instagram comments and DMs, once the Meta app is approved
 - A cart for several items in one PayPal order
-- An owner app to take over chats and reply, with PayPal refunds and tracking from the same screen
+- An owner app to take over chats and reply, with PayPal refunds from the same screen
+- Real carrier tracking numbers (UPS, USPS) instead of our own delivery numbers
 - Persistent storage and a hosted plan for real shops
 
 ## Built with
