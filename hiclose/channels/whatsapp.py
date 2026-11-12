@@ -37,6 +37,15 @@ class WhatsAppChannel:
         self._transport = transport
         # Twilio downloads photos itself, so they need our public address (Render sets RENDER_EXTERNAL_URL).
         self._base = public_base_url.rstrip("/")
+        # Messages the Messages API refused (the sandbox sender allows no free-form sends, error 21654).
+        # They're delivered as TwiML on the customer's next webhook.
+        self.pending: dict[str, list[OutgoingMessage]] = {}
+
+    def queue(self, message: OutgoingMessage) -> None:
+        self.pending.setdefault(message.customer_id, []).append(message)
+
+    def take_pending(self, customer_id: str) -> "list[OutgoingMessage]":
+        return self.pending.pop(customer_id, [])
 
     @classmethod
     def from_env(cls) -> "WhatsAppChannel | None":

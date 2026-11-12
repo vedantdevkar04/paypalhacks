@@ -231,5 +231,18 @@ class HiCloseService:
     async def _send(self, message: OutgoingMessage, deliver: bool = True) -> OutgoingMessage:
         channel = self.channels.get(message.channel)
         if deliver and channel is not None:
-            await channel.send(message)
+            try:
+                await channel.send(message)
+            except Exception:
+                # A refused send must never fail the PayPal webhook or the buyer's return page.
+                queue = getattr(channel, "queue", None)
+                log.warning("couldn't send to %s on %s%s", message.customer_id, message.channel,
+                            ", queued for their next message" if queue else "")
+                if queue:
+                    queue(message)
         return message
+
+    def order_channel(self, order_id: str) -> str | None:
+        """The channel the order's checkout was sent on, so the return page can point the buyer back."""
+        owner = self._order_owner.get(order_id)
+        return owner[0] if owner else None

@@ -10,7 +10,7 @@ from hiclose.api.app import create_app
 from hiclose.api.service import HiCloseService
 from hiclose.channels import OutgoingMessage, WebChannel
 from hiclose.channels.whatsapp import WhatsAppChannel, twilio_signature
-from tests.fakes import FakeModel, make_shop, say
+from tests.fakes import FakeModel, call, make_shop, say
 from tests.test_api import FakePayments
 
 TOKEN = "test-auth-token"
@@ -114,7 +114,9 @@ def build(script, outbox, delay=0.0):
     if delay:
         handle = agent.handle
         agent.handle = lambda *args: (time.sleep(delay), handle(*args))[1]
-    service = HiCloseService(agent, shop, FakePayments(), {"web": web, "whatsapp": whatsapp})
+    payments = FakePayments()
+    shop.checkout = payments
+    service = HiCloseService(agent, shop, payments, {"web": web, "whatsapp": whatsapp})
     return TestClient(create_app(service, web, whatsapp=whatsapp))
 
 
@@ -163,3 +165,22 @@ def test_whatsapp_route_needs_configuring():
     service = HiCloseService(SalesAgent(FakeModel([]), shop, ConversationStore()), shop, FakePayments(), {"web": web})
     client = TestClient(create_app(service, web))
     assert client.post("/webhooks/whatsapp", content="Body=hi").status_code == 503
+
+
+def test_paid_receipt_is_queued_when_twilio_refuses_it_and_the_return_page_still_works():
+    outbox = Refused()
+    client = build([call("checkout", product_id="tote-canvas", size="ONE"), say("Here's your checkout for $32"),
+                    say("Enjoy your tote!")], outbox)
+    assert "checkout for $32" in signed(client, incoming("I'll take the tote", sid="SM1")).text
+    page = client.get("/checkout/return", params={"token": "ORD-1"})
+    assert page.status_code == 200 and "Paid ✅" in page.text and "WhatsApp" in page.text
+    assert outbox.sent and outbox.sent[0]["Body"].startswith("Paid ✅")  # tried the API first
+    receipt = signed(client, incoming("thanks!", sid="SM2")).text
+    assert receipt.index("Paid ✅ $32") < receipt.index("Enjoy your tote!")
+    assert "Paid ✅" not in signed(client, incoming("bye", sid="SM3")).text  # delivered once
+
+
+def test_cancel_page_works_when_twilio_refuses_the_message():
+    client = build([call("checkout", product_id="tote-canvas", size="ONE"), say("Here's your checkout for $32")], Refused())
+    signed(client, incoming("I'll take the tote", sid="SM1"))
+    assert client.get("/checkout/cancel", params={"token": "ORD-1"}).status_code == 200

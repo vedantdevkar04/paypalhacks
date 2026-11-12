@@ -75,7 +75,7 @@ def create_app(
     # Twilio waits 15 s for the webhook response; answer a little before that.
     reply_seconds = float(os.environ.get("WHATSAPP_REPLY_SECONDS", "13"))
     # Replies that missed the webhook and that the API refused, delivered on the customer's next message.
-    app.state.whatsapp_pending = {}
+    app.state.whatsapp_pending = whatsapp.pending if whatsapp is not None else {}
 
     async def send_late(task, message):
         """The agent missed Twilio's webhook deadline. Try the Messages API; if Twilio refuses
@@ -91,7 +91,7 @@ def create_app(
             await whatsapp.send(reply)
         except Exception:
             log.warning("late whatsapp reply for %s queued for the customer's next message", message.message_id)
-            app.state.whatsapp_pending.setdefault(message.customer_id, []).append(reply)
+            whatsapp.queue(reply)
 
     app.mount("/products", StaticFiles(directory=STATIC / "products"), name="products")
 
@@ -166,7 +166,10 @@ def create_app(
             return _page("Payment problem", f"<h1>We couldn't confirm that payment</h1><p>{html.escape(str(error))}</p>")
         if record.status == "PAID":
             price = fmt(record.quote.price_cents, record.quote.currency)
-            return _page("Paid", f"<h1>Paid ✅</h1><p>{price} received. Order {html.escape(record.order_id)}.</p>")
+            back = ""
+            if service.order_channel(record.order_id) == "whatsapp":
+                back = "<p>Your receipt is in your WhatsApp chat with us. If it isn't there yet, send us any message.</p>"
+            return _page("Paid", f"<h1>Paid ✅</h1><p>{price} received. Order {html.escape(record.order_id)}.</p>{back}")
         return _page("Not paid", f"<h1>Payment not completed</h1><p>Status: {html.escape(record.status)}</p>")
 
     @app.get("/checkout/cancel")
@@ -199,7 +202,7 @@ def create_app(
         for message in whatsapp.parse(params):
             if not limiter.allow(message.customer_id):
                 continue
-            replies.extend(app.state.whatsapp_pending.pop(message.customer_id, []))
+            replies.extend(whatsapp.take_pending(message.customer_id))
             task = asyncio.create_task(service.handle(message, deliver=False))
             try:
                 reply = await asyncio.wait_for(asyncio.shield(task), reply_seconds)
