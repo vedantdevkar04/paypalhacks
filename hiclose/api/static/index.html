@@ -266,7 +266,11 @@ for (const c of CHIPS) {
   const b = document.createElement("button");
   b.type = "button"; b.textContent = c; b.onclick = () => send(c);
   if (c === "how would it look on me?") { b.dataset.chip = "tryon"; b.hidden = true; }
-  if (c === "do you have something like this?") { b.dataset.chip = "photos"; b.hidden = true; b.onclick = () => $("photo").click(); }
+  if (c === "do you have something like this?") {
+    // This chip is for sending a photo: say so, and send its words along with the picture.
+    b.dataset.chip = "photos"; b.hidden = true; b.textContent = "📷 " + c;
+    b.onclick = () => { if (!$("input").value.trim()) $("input").value = c; $("photo").click(); };
+  }
   $("chips").append(b);
 }
 updateWho();

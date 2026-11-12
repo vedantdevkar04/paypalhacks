@@ -1,6 +1,6 @@
 # Devpost entry, paste-ready
 
-Each `##` heading is one Devpost field. Fill in the three `<...>` placeholders before submitting.
+Each `##` heading is one Devpost field. The only placeholder left is the YouTube link.
 
 ---
 
@@ -62,9 +62,9 @@ It works in a web chat that anyone can try and on WhatsApp.
 
 - **A rules engine in plain Python** owns prices, hidden floor prices, negotiation rounds, stock and
   quotes. The model never sees a floor price.
-- **A Gemini 3.6 Flash agent** uses function calling with five tools (`list_products`,
-  `get_product`, `propose_price`, `checkout`, `hand_to_owner`). It falls back to Gemini 3.5
-  Flash-Lite and retries when the model is busy.
+- **A Gemini 3.6 Flash agent** uses function calling with seven tools (`list_products`,
+  `get_product`, `show_photo`, `identify_photo`, `propose_price`, `checkout`, `hand_to_owner`). It
+  falls back to Gemini 3.5 Flash-Lite and retries when the model is busy.
 - **Prices travel as quote IDs.** `checkout` creates a quote on the server, and the PayPal order is
   built from that quote. A fooled model can't make a $1 order.
 - **A guardrail checks every reply** before it's sent. Any amount or percentage that no tool
@@ -128,18 +128,29 @@ It works in a web chat that anyone can try and on WhatsApp.
 - Real carrier tracking numbers (UPS, USPS) instead of our own delivery numbers
 - Persistent storage and a hosted plan for real shops
 
+## AI tools and how we used them
+
+- **Google Gemini 3.6 Flash** (fallback **Gemini 3.5 Flash-Lite**), through the `google-genai` SDK: the
+  sales agent. It reads each message, picks a tool with function calling, and words the reply. It never
+  sets a price, a discount or a payment status; the rules engine and PayPal do.
+- **Channel3** (product search and image search): identifies what's in a customer's photo so the agent
+  can offer our closest product, and gives the owner market prices for similar items. The agent never
+  sees other stores or their prices.
+- **Claude Code** was our pair programmer while building HiClose. It isn't part of the running product.
+
 ## Built with
 
 `python` · `fastapi` · `gemini` · `google-genai` · `paypal` · `paypal-orders-api` ·
-`paypal-webhooks` · `twilio` · `whatsapp` · `ag-grid` · `render` · `httpx` · `pytest`
+`paypal-webhooks` · `paypal-tracking` · `twilio` · `whatsapp` · `ag-grid` · `bryntum` · `channel3` ·
+`render` · `httpx` · `pytest`
 
 ---
 
 ## Before you submit
 
-- [ ] Video uploaded to YouTube (public or unlisted), under 3:00, link pasted above and in the README
-- [ ] README placeholders filled: WhatsApp join phrase, sandbox buyer login, video link
+- [ ] Video uploaded to YouTube as **Public** (the rules say publicly visible), under 3:00, link pasted above and in the README
+- [x] README: sandbox buyer login filled · [ ] video link · [ ] check the WhatsApp join phrase matches the Twilio sandbox page
 - [ ] Repo is public and MIT shows in the GitHub About box
 - [ ] Wake the live site just before submitting (open https://hiclose.onrender.com)
-- [ ] Opt in to sponsor prizes: AG Grid, Bryntum, Channel3, Render
-- [ ] Submitted before 12:00 PT on 12 Nov (aim for 09:00 PT)
+- [ ] Opt in to sponsor prizes: AG Grid, Bryntum, Channel3, Render (not APIMatic: we don't use it)
+- [ ] Submitted before **12:00 PT on 12 Nov**
